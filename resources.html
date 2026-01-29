@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0c4a6e">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=yes">
+    <title>Resources - Simplicon Tax Advisors LLP</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation -->
+    <header class="header">
+        <nav class="nav container">
+            <a href="index.html" class="logo">
+                <img src="/Simplicon_logo.png" alt="Simplicon Tax" class="logo-img">
+            </a>
+            <button class="nav-toggle" aria-label="Toggle menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            <ul class="nav-menu">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="about.html">About Us</a></li>
+                <li><a href="pricing.html">Pricing</a></li>
+                <li><a href="contact.html">Contact Us</a></li>
+                <li><a href="resources.html" class="active">Resources</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- Page Hero -->
+    <section class="page-hero">
+        <div class="container">
+            <h1>Resources</h1>
+            <p>Check Refund Status, Pay Taxes Online & More</p>
+        </div>
+    </section>
+
+    <!-- Resources Content -->
+    <section class="resources-page">
+        <div class="container">
+            <h2 class="resources-page-title" id="refund">Check Refund Status / Pay Tax Online</h2>
+            
+            <div class="resources-table-wrapper">
+                <table class="resources-table">
+                    <thead>
+                        <tr>
+                            <th>Service</th>
+                            <th>Select Department</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr id="refund-row">
+                            <td><strong>Refund Status</strong></td>
+                            <td>
+                                <select class="resources-select" id="refundSelect">
+                                    <option value="https://www.irs.gov/wheres-my-refund">Federal Regular</option>
+                                    <option value="https://www.irs.gov/wheres-my-refund">Federal Amendment</option>
+                                    <optgroup label="States">
+                                        <option value="https://aztaxes.gov/">AZ</option>
+                                        <option value="https://www.ftb.ca.gov/">CA</option>
+                                        <option value="https://tax.colorado.gov/">CO</option>
+                                        <option value="https://portal.ct.gov/drs">CT</option>
+                                        <option value="https://tax.delaware.gov/">DE</option>
+                                        <option value="https://dor.georgia.gov/">GA</option>
+                                        <option value="https://tax.hawaii.gov/">HI</option>
+                                        <option value="https://tax.idaho.gov/">ID</option>
+                                        <option value="https://tax.illinois.gov/">IL</option>
+                                        <option value="https://www.in.gov/dor/">IN</option>
+                                        <option value="https://tax.iowa.gov/">IA</option>
+                                        <option value="https://www.ksrevenue.org/">KS</option>
+                                        <option value="https://revenue.ky.gov/">KY</option>
+                                        <option value="https://revenue.louisiana.gov/">LA</option>
+                                        <option value="https://www.maine.gov/revenue/">ME</option>
+                                        <option value="https://www.marylandtaxes.gov/">MD</option>
+                                        <option value="https://www.mass.gov/dor">MA</option>
+                                        <option value="https://www.michigan.gov/taxes">MI</option>
+                                        <option value="https://www.revenue.state.mn.us/">MN</option>
+                                        <option value="https://www.dor.ms.gov/">MS</option>
+                                        <option value="https://mtrevenue.gov/">MT</option>
+                                        <option value="https://revenue.nebraska.gov/">NE</option>
+                                        <option value="https://www.nj.gov/treasury/taxation/">NJ</option>
+                                        <option value="https://www.tax.newmexico.gov/">NM</option>
+                                        <option value="https://www.tax.ny.gov/">NY</option>
+                                        <option value="https://www.ncdor.gov/">NC</option>
+                                        <option value="https://www.tax.nd.gov/">ND</option>
+                                        <option value="https://tax.ohio.gov/">OH</option>
+                                        <option value="https://www.tax.ok.gov/">OK</option>
+                                        <option value="https://www.oregon.gov/dor">OR</option>
+                                        <option value="https://www.revenue.pa.gov/">PA</option>
+                                        <option value="https://tax.ri.gov/">RI</option>
+                                        <option value="https://dor.sc.gov/">SC</option>
+                                        <option value="https://tax.utah.gov/">UT</option>
+                                        <option value="https://tax.vermont.gov/">VT</option>
+                                        <option value="https://www.tax.virginia.gov/">VA</option>
+                                        <option value="https://dor.wa.gov/">WA</option>
+                                        <option value="https://tax.wv.gov/">WV</option>
+                                        <option value="https://www.revenue.wi.gov/">WI</option>
+                                    </optgroup>
+                                </select>
+                            </td>
+                            <td><a href="https://www.irs.gov/wheres-my-refund" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm resources-go-btn" id="refundGo">Go</a></td>
+                        </tr>
+                        <tr id="pay">
+                            <td><strong>Pay Tax Online</strong></td>
+                            <td>
+                                <select class="resources-select" id="paySelect">
+                                    <option value="https://www.irs.gov/payments/direct-pay">Federal Regular</option>
+                                    <optgroup label="States">
+                                        <option value="https://aztaxes.gov/">AZ</option>
+                                        <option value="https://www.ftb.ca.gov/">CA</option>
+                                        <option value="https://tax.colorado.gov/">CO</option>
+                                        <option value="https://portal.ct.gov/drs">CT</option>
+                                        <option value="https://tax.delaware.gov/">DE</option>
+                                        <option value="https://dor.georgia.gov/">GA</option>
+                                        <option value="https://tax.hawaii.gov/">HI</option>
+                                        <option value="https://tax.idaho.gov/">ID</option>
+                                        <option value="https://tax.illinois.gov/">IL</option>
+                                        <option value="https://www.in.gov/dor/">IN</option>
+                                        <option value="https://tax.iowa.gov/">IA</option>
+                                        <option value="https://www.ksrevenue.org/">KS</option>
+                                        <option value="https://revenue.ky.gov/">KY</option>
+                                        <option value="https://revenue.louisiana.gov/">LA</option>
+                                        <option value="https://www.maine.gov/revenue/">ME</option>
+                                        <option value="https://www.marylandtaxes.gov/">MD</option>
+                                        <option value="https://www.mass.gov/dor">MA</option>
+                                        <option value="https://www.michigan.gov/taxes">MI</option>
+                                        <option value="https://www.revenue.state.mn.us/">MN</option>
+                                        <option value="https://www.dor.ms.gov/">MS</option>
+                                        <option value="https://mtrevenue.gov/">MT</option>
+                                        <option value="https://revenue.nebraska.gov/">NE</option>
+                                        <option value="https://www.nj.gov/treasury/taxation/">NJ</option>
+                                        <option value="https://www.tax.newmexico.gov/">NM</option>
+                                        <option value="https://www.tax.ny.gov/">NY</option>
+                                        <option value="https://www.ncdor.gov/">NC</option>
+                                        <option value="https://www.tax.nd.gov/">ND</option>
+                                        <option value="https://tax.ohio.gov/">OH</option>
+                                        <option value="https://www.tax.ok.gov/">OK</option>
+                                        <option value="https://www.oregon.gov/dor">OR</option>
+                                        <option value="https://www.revenue.pa.gov/">PA</option>
+                                        <option value="https://tax.ri.gov/">RI</option>
+                                        <option value="https://dor.sc.gov/">SC</option>
+                                        <option value="https://tax.utah.gov/">UT</option>
+                                        <option value="https://tax.vermont.gov/">VT</option>
+                                        <option value="https://www.tax.virginia.gov/">VA</option>
+                                        <option value="https://dor.wa.gov/">WA</option>
+                                        <option value="https://tax.wv.gov/">WV</option>
+                                        <option value="https://www.revenue.wi.gov/">WI</option>
+                                    </optgroup>
+                                </select>
+                            </td>
+                            <td><a href="https://www.irs.gov/payments/direct-pay" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm resources-go-btn" id="payGo">Go</a></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Get Your Tax Records</strong></td>
+                            <td>
+                                <select class="resources-select" id="recordsSelect">
+                                    <option value="https://www.irs.gov/individuals/get-transcript">Get Transcript Online</option>
+                                    <option value="https://www.irs.gov/individuals/get-transcript">Get Transcript by Mail</option>
+                                </select>
+                            </td>
+                            <td><a href="https://www.irs.gov/individuals/get-transcript" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm resources-go-btn" id="recordsGo">Go</a></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3 class="resources-section-title">IRS Contact Information</h3>
+            <div class="resources-table-wrapper">
+                <table class="resources-table resources-table--contact">
+                    <tbody>
+                        <tr>
+                            <td><strong>IRS Local Office Locator</strong></td>
+                            <td><a href="https://apps.irs.gov/app/officeLocator/index.jsp" target="_blank" rel="noopener noreferrer">https://apps.irs.gov/app/officeLocator/index.jsp</a></td>
+                        </tr>
+                        <tr>
+                            <td><strong>IRS Contact Number for Individuals</strong></td>
+                            <td>800-829-1040</td>
+                        </tr>
+                        <tr>
+                            <td><strong>IRS Contact Number for Businesses</strong></td>
+                            <td>800-829-4933</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="resources-note"><strong>Note:</strong> Please make sure to have a copy of your tax return handy while checking the refund status/payment online.</p>
+
+            <h3 class="resources-section-title" id="record">How long should you keep records?</h3>
+            <p>Generally, you must keep your records that support an item of income, deduction or credit shown on your tax return until the period of limitations for that tax return runs out.</p>
+            <p>You must keep your records as long as they may be needed for the administration of any provision of the Internal Revenue Code. Generally, it is 3 years from the date of filing the tax returns unless the taxpayer filed a fraudulent tax return or under-reporting of income.</p>
+            <p>The IRS doesn't require you to keep your records in a particular way. Keep them in a manner that allows you and the IRS to determine your correct tax.</p>
+            <p>You can use your checkbook to keep a record of your income and expenses. You also need to keep documents, such as receipts and sales slips that can help prove a deduction.</p>
+
+            <h3 class="resources-section-title">To Summarize</h3>
+            <ul class="resources-summary-list">
+                <li>Every Taxpayer shall keep their records for at least 3 years from the date of filing their tax returns.</li>
+                <li>The taxpayer shall keep the documents with respect to Income and all the items claimed as either deduction or credit.</li>
+                <li>It is advised to keep the W2 documents until you start receiving the Social Security Benefits.</li>
+                <li>IRS may come back anytime within 3 years seeking supporting documents related to any/all of the items including income reported on the tax returns.</li>
+                <li>It is very important especially when the taxpayer claims Itemized Deduction instead of Standard Deduction on the tax return. For every deduction that you are claiming under Itemized Deductions, taxpayer must be able to maintain appropriate proof of payment which may include receipts, cancelled checks, bank and/or credit card statements.</li>
+                <li>If the taxpayer would not be able to substantiate the expenses claimed when sought by the IRS, then the IRS has every right to collect the taxes which the taxpayer claimed through itemization.</li>
+            </ul>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-brand">
+                    <a href="index.html" class="logo">
+                        <img src="/Simplicon_logo.png" alt="Simplicon Tax" class="logo-img">
+                    </a>
+                    <p>Simplicon Tax Advisors LLP is a dedicated US Tax Filing Company formed by professionals in the year 2009. We at Simplicon Tax Advisors LLP offer a wide range of services to Salaried, Self-Employed & High Net worth Individuals and Small Business Enterprises with respect to filing of Income Tax returns in USA.</p>
+                </div>
+                <div class="footer-links">
+                    <h4>Quick links</h4>
+                    <ul>
+                        <li><a href="index.html">Home</a></li>
+                        <li><a href="about.html">About us</a></li>
+                        <li><a href="pricing.html">Pricing</a></li>
+                        <li><a href="contact.html">Contact Us</a></li>
+                        <li><a href="resources.html">Resources</a></li>
+                        <li><a href="resources.html#refund">Check Your Federal and State Refund Status</a></li>
+                        <li><a href="resources.html#pay">Pay Federal and State Taxes Online</a></li>
+                        <li><a href="pricing.html#itin">Apply ITIN for Yourself, Spouse or Dependents</a></li>
+                        <li><a href="resources.html#record">Record Keeping Management</a></li>
+                    </ul>
+                </div>
+                <div class="footer-contact">
+                    <h4>Head Office</h4>
+                    <p><strong>Simplicon Tax Advisors LLP</strong><br>Hitech City - JNTU Road<br>Manjeera Commercial<br>Hyderabad, Telangana - 500072</p>
+                    <a href="mailto:contact@ustaxfiler.com">contact@ustaxfiler.com</a>
+                    <div class="footer-phone">
+                        <a href="tel:+1-470-444-8100">(US) +1-470-444-8100</a>
+                        <a href="tel:+91-7207057471">(India) +91 7207057471</a>
+                        <a href="tel:+91-9121157586">(India) +91 9121157586</a>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 Simplicon Tax Advisors LLP. All Rights Reserved</p>
+                <p class="footer-registered">Registered as Simplicon Tax Advisors LLP | Trading as Simplicon Tax</p>
+            </div>
+        </div>
+    </footer>
+
+    <script type="module" src="/src/main.ts"></script>
+    <script>
+        // Update Go button links based on dropdown selection
+        document.getElementById('refundSelect')?.addEventListener('change', function() {
+            document.getElementById('refundGo').href = this.value;
+        });
+        document.getElementById('paySelect')?.addEventListener('change', function() {
+            document.getElementById('payGo').href = this.value;
+        });
+        document.getElementById('recordsSelect')?.addEventListener('change', function() {
+            document.getElementById('recordsGo').href = this.value;
+        });
+    </script>
+</body>
+</html>
