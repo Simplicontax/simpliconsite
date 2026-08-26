@@ -11,3 +11,4 @@
 .site-logo img{width:160px;height:96px;max-height:96px;object-fit:contain;object-position:left center;filter:drop-shadow(0 6px 10px rgba(15,72,95,.06))}
 .footer-brand img{width:175px;max-height:150px;padding:0;border-radius:0;background:transparent;object-fit:contain}
 @media(max-width:620px){.header-inner{min-height:76px}.site-logo img{width:96px;height:64px;max-height:64px}.footer-brand img{width:132px}}
+.footer-main address{max-width:240px;margin:.2rem 0 0;color:#9db5bf;font-size:.7rem;font-style:normal;line-height:1.6}

@@ -11,8 +11,8 @@ export function mountFloatingContact(): void {
   rail.setAttribute('aria-label', 'Contact Simplicon Tax');
   rail.innerHTML = [
     '<a class="floating-contact-button email" href="mailto:info@simplicontax.com" data-label="Email us" aria-label="Email Simplicon Tax at info@simplicontax.com">' + envelopeIcon + '</a>',
-    '<a class="floating-contact-button us-call" href="tel:+14704448100" data-label="Call US: +1 470 444 8100" aria-label="Call the Simplicon Tax United States number, plus 1 470 444 8100">' + phoneIcon + '<span>US</span></a>',
-    '<a class="floating-contact-button india-call" href="tel:+917207057471" data-label="Call India: +91 72070 57471" aria-label="Call the Simplicon Tax India number, plus 91 72070 57471">' + phoneIcon + '<span>IN</span></a>',
+    '<a class="floating-contact-button us-call" href="tel:+14243025536" data-label="Call US: +1 424-302-5536" aria-label="Call the Simplicon Tax United States number, plus 1 424 302 5536">' + phoneIcon + '<span>US</span></a>',
+    '<a class="floating-contact-button india-call" href="tel:+917093207787" data-label="Call India: +91 7093-207-787" aria-label="Call the Simplicon Tax India number, plus 91 7093 207 787">' + phoneIcon + '<span>IN</span></a>',
   ].join('');
   document.body.append(rail);
 }
