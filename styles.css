@@ -40,6 +40,316 @@
     --transition-slow: 0.5s var(--ease-out-expo);
 }
 
+/* 2026 service explorer and continuous testimonials */
+.nav-portal-link {
+    padding: 0.65rem 1rem !important;
+    border-radius: 999px;
+    color: #fff !important;
+    background: #0f766e;
+}
+
+.legacy-services,
+.legacy-testimonials {
+    display: none !important;
+}
+
+.services-reimagined {
+    padding: 7rem 0;
+    color: #eaf6f3;
+    background:
+        radial-gradient(circle at 85% 5%, rgba(36, 181, 155, 0.2), transparent 28%),
+        linear-gradient(145deg, #071d2b 0%, #0c3543 100%);
+}
+
+.services-reimagined .section-title {
+    max-width: 760px;
+    margin: 0.75rem 0 0;
+    color: #fff;
+    text-align: left;
+    font-size: clamp(2.35rem, 5vw, 4.7rem);
+    line-height: 1.02;
+    letter-spacing: -0.05em;
+}
+
+.section-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    color: #71dcc8;
+    font-size: 0.77rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.section-kicker::before {
+    width: 1.7rem;
+    height: 1px;
+    background: currentColor;
+    content: "";
+}
+
+.services-heading {
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(260px, 0.55fr);
+    align-items: end;
+    gap: 3rem;
+}
+
+.services-heading > p {
+    margin: 0 0 0.5rem;
+    color: #b9d0d5;
+    font-size: 1.02rem;
+    line-height: 1.75;
+}
+
+.service-explorer {
+    overflow: hidden;
+    margin-top: 3.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.13);
+    border-radius: 28px;
+    background: rgba(255, 255, 255, 0.06);
+    box-shadow: 0 30px 90px rgba(0, 0, 0, 0.24);
+    backdrop-filter: blur(16px);
+}
+
+.jurisdiction-tabs {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    padding: 0.7rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.jurisdiction-tab {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.65rem;
+    padding: 1rem;
+    border: 0;
+    border-radius: 16px;
+    color: #b9d0d5;
+    background: transparent;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 600;
+    transition: 180ms ease;
+}
+
+.jurisdiction-tab span {
+    display: grid;
+    width: 2.1rem;
+    height: 2.1rem;
+    place-items: center;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 50%;
+    font-size: 0.66rem;
+    letter-spacing: 0.08em;
+}
+
+.jurisdiction-tab:hover,
+.jurisdiction-tab.active {
+    color: #082a2d;
+    background: #a8eadc;
+}
+
+.jurisdiction-tab.active span {
+    border-color: rgba(8, 42, 45, 0.2);
+    background: #fff;
+}
+
+.service-detail {
+    display: grid;
+    grid-template-columns: 0.82fr 1.18fr;
+    gap: 4rem;
+    padding: 3.5rem;
+}
+
+.service-detail-copy {
+    display: flex;
+    align-items: flex-start;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.service-country-label {
+    color: #71dcc8;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.service-detail-copy h3 {
+    margin: 1rem 0;
+    color: #fff;
+    font-family: "Lora", serif;
+    font-size: clamp(2rem, 3vw, 3.1rem);
+    line-height: 1.08;
+}
+
+.service-detail-copy > p {
+    margin: 0 0 2rem;
+    color: #bfd1d5;
+    line-height: 1.75;
+}
+
+.service-capabilities {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.11);
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 0.11);
+}
+
+.service-capabilities article {
+    min-height: 180px;
+    padding: 1.65rem;
+    background: #0c2d39;
+}
+
+.service-capabilities article > span {
+    color: #71dcc8;
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+
+.service-capabilities h4 {
+    margin: 1.45rem 0 0.55rem;
+    color: #fff;
+    font-size: 1.08rem;
+}
+
+.service-capabilities p {
+    margin: 0;
+    color: #a9c2c8;
+    font-size: 0.9rem;
+    line-height: 1.6;
+}
+
+.cross-border-banner {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 1.25rem;
+    margin-top: 1.25rem;
+    padding: 1.2rem 1.4rem;
+    border-radius: 20px;
+    color: #102a43;
+    background: #f6c85f;
+}
+
+.cross-border-orbit {
+    display: grid;
+    width: 3.2rem;
+    height: 3.2rem;
+    place-items: center;
+    border: 1px solid rgba(16, 42, 67, 0.16);
+    border-radius: 50%;
+    font-size: 1.5rem;
+}
+
+.cross-border-banner strong { font-size: 1rem; }
+.cross-border-banner p { margin: 0.15rem 0 0; font-size: 0.9rem; }
+.cross-border-banner a { color: #102a43; font-weight: 700; }
+
+.testimonials-marquee {
+    overflow: hidden;
+    padding: 7rem 0;
+    background: #f7f9fc;
+}
+
+.testimonials-intro {
+    display: grid;
+    grid-template-columns: 1fr 0.65fr;
+    align-items: end;
+    gap: 2rem;
+    margin-bottom: 3rem;
+}
+
+.testimonials-intro .section-kicker { grid-column: 1 / -1; color: #0f766e; }
+.testimonials-intro .section-title { margin: 0; text-align: left; }
+.testimonials-intro > p { margin: 0; color: #627d98; line-height: 1.7; }
+
+.testimonial-viewport {
+    position: relative;
+    width: 100%;
+}
+
+.testimonial-viewport::before,
+.testimonial-viewport::after {
+    position: absolute;
+    z-index: 2;
+    top: 0;
+    bottom: 0;
+    width: min(10vw, 150px);
+    pointer-events: none;
+    content: "";
+}
+
+.testimonial-viewport::before { left: 0; background: linear-gradient(90deg, #f7f9fc, transparent); }
+.testimonial-viewport::after { right: 0; background: linear-gradient(-90deg, #f7f9fc, transparent); }
+
+.testimonial-track {
+    display: flex;
+    width: max-content;
+    gap: 1.25rem;
+    padding: 0.5rem 0;
+    animation: testimonial-scroll 75s linear infinite;
+}
+
+.testimonial-track:hover { animation-play-state: paused; }
+
+.testimonials-marquee .testimonial-card {
+    display: flex;
+    width: min(420px, 82vw);
+    min-height: 310px;
+    flex: 0 0 auto;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 2rem;
+    border: 1px solid #dfe7ef;
+    border-radius: 24px;
+    background: #fff;
+    box-shadow: 0 18px 48px rgba(16, 42, 67, 0.08);
+}
+
+.testimonials-marquee .stars { color: #e9a91b; letter-spacing: 0.2em; }
+.testimonials-marquee blockquote { margin: 2rem 0; color: #243b53; font-family: "Lora", serif; font-size: 1.18rem; line-height: 1.65; }
+.testimonials-marquee cite { display: flex; align-items: center; gap: 0.85rem; font-style: normal; }
+.testimonials-marquee cite > span { display: grid; width: 2.8rem; height: 2.8rem; place-items: center; border-radius: 50%; color: #fff; background: #0f766e; font-size: 0.75rem; font-weight: 700; }
+.testimonials-marquee cite strong { display: flex; flex-direction: column; color: #102a43; font-size: 0.9rem; }
+.testimonials-marquee cite small { margin-top: 0.2rem; color: #829ab1; font-weight: 500; }
+
+@keyframes testimonial-scroll {
+    to { transform: translateX(calc(-50% - 0.625rem)); }
+}
+
+@media (max-width: 820px) {
+    .services-heading,
+    .service-detail,
+    .testimonials-intro { grid-template-columns: 1fr; }
+    .service-detail { gap: 2rem; padding: 2rem; }
+    .jurisdiction-tabs { grid-template-columns: repeat(2, 1fr); gap: 0.35rem; }
+    .jurisdiction-tab { justify-content: flex-start; font-size: 0.8rem; }
+    .cross-border-banner { grid-template-columns: auto 1fr; }
+    .cross-border-banner > a { grid-column: 2; }
+}
+
+@media (max-width: 520px) {
+    .services-reimagined,
+    .testimonials-marquee { padding: 5rem 0; }
+    .service-detail { padding: 1.25rem; }
+    .service-capabilities { grid-template-columns: 1fr; }
+    .jurisdiction-tab span { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .testimonial-track { animation: none; overflow-x: auto; }
+}
+
 /* ============================================
    Animations
    ============================================ */
@@ -1577,4 +1887,20 @@ a:hover {
 .efiling-popup-highlight {
     color: #dc2626;
     font-weight: 700;
+}
+
+/* Scoped precedence fixes for the refreshed homepage sections. */
+.services.services-reimagined {
+    color: #eaf6f3;
+    background:
+        radial-gradient(circle at 85% 5%, rgba(36, 181, 155, 0.2), transparent 28%),
+        linear-gradient(145deg, #071d2b 0%, #0c3543 100%);
+}
+
+.services.services-reimagined .service-explorer {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.testimonials.testimonials-marquee {
+    background: #f7f9fc;
 }
