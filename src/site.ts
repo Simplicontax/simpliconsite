@@ -1,3 +1,5 @@
+import { mountFloatingContact } from './floating-contact';
+
 const header = document.getElementById('siteHeader');
 const toggle = document.getElementById('menuToggle');
 const nav = document.getElementById('siteNav');
@@ -173,3 +175,5 @@ document.getElementById('sendAnother')?.addEventListener('click', () => {
   if (contactForm) contactForm.style.display = 'grid';
   if (formSuccess) formSuccess.style.display = 'none';
 });
+
+mountFloatingContact();
