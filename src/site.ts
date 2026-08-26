@@ -129,15 +129,47 @@ resourceSearch?.addEventListener('input', filterResources);
 
 const contactForm = document.getElementById('contactForm') as HTMLFormElement | null;
 const formSuccess = document.getElementById('formSuccess');
-contactForm?.addEventListener('submit', (event) => {
+const formError = document.getElementById('formError');
+contactForm?.addEventListener('submit', async (event) => {
   event.preventDefault();
   if (!contactForm.reportValidity()) return;
-  contactForm.style.display = 'none';
-  if (formSuccess) formSuccess.style.display = 'block';
+
+  const submitButton = contactForm.querySelector<HTMLButtonElement>('button[type="submit"]');
+  const originalButtonContent = submitButton?.innerHTML ?? '';
+  formError?.classList.remove('show');
+  if (submitButton) {
+    submitButton.disabled = true;
+    submitButton.innerHTML = '<i class="form-spinner" aria-hidden="true"></i> Sending…';
+  }
+
+  try {
+    const payload = Object.fromEntries(new FormData(contactForm).entries());
+    const response = await fetch('/api/contact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const result = await response.json().catch(() => ({})) as { ok?: boolean; error?: string };
+    if (!response.ok || !result.ok) throw new Error(result.error || 'We could not send your enquiry.');
+
+    contactForm.style.display = 'none';
+    if (formSuccess) formSuccess.style.display = 'block';
+  } catch (error) {
+    if (formError) {
+      formError.textContent = error instanceof Error ? error.message : 'We could not send your enquiry. Please email info@simplicontax.com.';
+      formError.classList.add('show');
+    }
+  } finally {
+    if (submitButton) {
+      submitButton.disabled = false;
+      submitButton.innerHTML = originalButtonContent;
+    }
+  }
 });
 
 document.getElementById('sendAnother')?.addEventListener('click', () => {
   contactForm?.reset();
+  formError?.classList.remove('show');
   if (contactForm) contactForm.style.display = 'grid';
   if (formSuccess) formSuccess.style.display = 'none';
 });

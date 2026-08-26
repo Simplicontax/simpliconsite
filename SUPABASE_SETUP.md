@@ -62,6 +62,7 @@ Add these values in **Vercel → Project → Settings → Environment Variables*
 - `SMTP_USER=info@simplicontax.com`
 - `SMTP_PASS=` the GoDaddy mailbox password
 - `SMTP_FROM=info@simplicontax.com`
+- `CONTACT_TO=info@simplicontax.com` (optional website enquiry recipient)
 - `PORTAL_URL=https://www.simplicontax.com`
 
 Never prefix `SMTP_PASS` or `SUPABASE_SERVICE_ROLE_KEY` with `VITE_`; that would expose them to the browser. Do not commit either secret to the repository. The email queue and per-recipient delivery log prevent repeat emails when a portal action is retried. Use `vercel dev` when testing the API locally because the standalone Vite server does not serve the `/api` function.
