@@ -547,3 +547,10 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .auth-shell[data-auth-mode="signup"] .forgot-link{visibility:hidden;pointer-events:none}
 .auth-header-actions>a:first-child.active{display:flex;align-items:center;padding:.65rem .85rem;border-radius:9px;color:#0e5273;background:#eaf4f6;box-shadow:inset 0 0 0 1px #cfe2e7}
 .auth-header-actions .signup.active{background:#2f8058;box-shadow:0 0 0 3px rgba(47,128,88,.16),0 8px 20px rgba(14,82,115,.2)}
+
+/* Fixed-size authentication header controls across modes and browsers. */
+.auth-header-actions{display:grid;grid-template-columns:repeat(2,96px);gap:.65rem}
+.auth-header-actions>a,.auth-header-actions>a:first-child,.auth-header-actions>a:first-child.active,.auth-header-actions .signup{display:inline-flex;width:100%;min-height:42px;align-items:center;justify-content:center;padding:.65rem .8rem;border:1px solid transparent;border-radius:9px;box-sizing:border-box;font-size:.78rem;font-weight:800;line-height:1;white-space:nowrap}
+.auth-header-actions>a:first-child.active{border-color:#cfe2e7;box-shadow:none}
+@media(max-width:560px){.auth-header-actions{grid-template-columns:repeat(2,80px)}.auth-header-actions>a,.auth-header-actions>a:first-child,.auth-header-actions>a:first-child.active,.auth-header-actions .signup{padding:.6rem .55rem;font-size:.72rem}}
+@supports not (height:100svh){.auth-shell{height:100vh}}

@@ -13,3 +13,6 @@
 @media(max-width:620px){.header-inner{min-height:76px}.site-logo img{width:96px;height:64px;max-height:64px}.footer-brand img{width:132px}}
 .footer-main address{max-width:240px;margin:.2rem 0 0;color:#9db5bf;font-size:.7rem;font-style:normal;line-height:1.6}
 .footer-main address strong{display:block;margin-bottom:.25rem;color:#fff;font-size:.62rem;font-style:normal}
+
+/* Regional SEO internal links */
+.country-cards h3 a,.country-service-grid h3 a{color:inherit;text-decoration:none}.country-cards h3 a:hover,.country-service-grid h3 a:hover{color:var(--blue)}

@@ -15,6 +15,8 @@ export default defineConfig({
         resources: 'resources.html',
         refundStatus: 'refund-status.html',
         portal: 'portal.html',
+        usTax: 'us-tax-filing.html',
+        indiaTax: 'india-tax-filing.html',
       },
     },
   },
