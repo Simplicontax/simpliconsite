@@ -140,7 +140,16 @@ export default {
     if (failed) return Response.json({ error: 'One or more notification emails could not be sent', sent, failed }, { status: 502, headers: corsHeaders });
     return Response.json({ message: `${sent} notification email${sent === 1 ? '' : 's'} sent`, sent }, { headers: corsHeaders });
   } catch (error) {
-    return Response.json({ error: error instanceof Error ? error.message : 'Unknown error' }, { status: 400, headers: corsHeaders });
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    const status = message === 'Missing authorization' || message === 'Invalid session' ? 401
+      : message === 'A valid ticket ID is required' ? 400
+      : message === 'You do not have access to this ticket' ? 403
+      : message === 'Ticket or active profile not found' ? 404
+      : message.includes('not configured') ? 503
+      : 500;
+    console.error('Ticket notification request failed:', message);
+    const publicMessage = status === 500 ? 'Notification service encountered an unexpected error' : message;
+    return Response.json({ error: publicMessage }, { status, headers: corsHeaders });
   }
   },
 };

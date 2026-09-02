@@ -80,7 +80,9 @@ async function notifyTicketParticipants(ticketId:string):Promise<boolean> {
     const {data:{session}}=await supabase.auth.getSession();if(!session)return false;
     const response=await fetch('/api/ticket-notification',{method:'POST',headers:{Authorization:`Bearer ${session.access_token}`,'Content-Type':'application/json'},body:JSON.stringify({ticketId})});
     const isJson=response.headers.get('content-type')?.includes('application/json');
-    if(!response.ok||!isJson){console.error('Ticket email notification failed:',response.status);return false;}
+    const payload=isJson?await response.json().catch(()=>null) as {error?:unknown}|null:null;
+    if(!response.ok){console.error('Ticket email notification failed:',response.status,typeof payload?.error==='string'?payload.error:'Unknown notification error');return false;}
+    if(!isJson){console.error('Ticket email notification failed: non-JSON response');return false;}
     return true;
   }catch(error){console.error('Ticket email notification failed:',error);return false;}
 }
