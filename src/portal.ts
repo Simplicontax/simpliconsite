@@ -1,6 +1,5 @@
 import type { Provider, User } from '@supabase/supabase-js';
 import { isSupabaseConfigured, supabase } from './supabase';
-import { mountFloatingContact } from './floating-contact';
 
 type Role = 'client' | 'team' | 'admin';
 type TicketStatus = 'new' | 'open' | 'work_in_progress' | 'pending' | 'pending_for_review' | 'waiting_for_client' | 'completed' | 'waiting_on_client' | 'in_review' | 'ready_for_review' | 'complete';
@@ -527,4 +526,4 @@ async function initialize():Promise<void> {
   });
 }
 
-document.addEventListener('DOMContentLoaded',()=>{mountFloatingContact();void initialize();});
+document.addEventListener('DOMContentLoaded',()=>{void initialize();});
