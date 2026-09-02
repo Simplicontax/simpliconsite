@@ -8,7 +8,6 @@
    - `supabase/migrations/202608200003_ticket_email_notifications.sql`
    - `supabase/migrations/202608200004_organizer_and_document_retention.sql`
    - `supabase/migrations/202608200005_user_lifecycle_and_document_delete.sql`
-   - `supabase/migrations/202609020006_social_and_phone_auth.sql`
 4. Create the admin Auth user with the email `info@simplicontax.com`, then promote that exact account once in the SQL editor:
 
    ```sql
@@ -26,22 +25,20 @@
    ```
 
    Ticket emails are handled by the Vercel function in `api/ticket-notification.ts` and deploy automatically with the site.
-6. Add the production portal URL and `http://127.0.0.1:2323/portal.html` to Authentication → URL Configuration → Redirect URLs while testing locally.
+6. Add the production portal URL and `http://127.0.0.1:1221/portal.html` to Authentication → URL Configuration → Redirect URLs while testing locally.
 7. Customize the Supabase Invite and Reset Password email templates with Simplicon branding.
 
-## Google, Apple, and phone client sign-in
+## Google client sign-in
 
-Run migration 202609020006_social_and_phone_auth.sql before enabling phone sign-in. It allows a legitimate phone-only Auth user to have a Client profile without inventing an email address. Authorization remains controlled by public.profiles; all newly created social and phone users receive the client role, while Team accounts still require an administrator invitation.
+Authorization remains controlled by public.profiles; all newly created Google users receive the Client role, while Team accounts still require an administrator invitation.
 
 1. In **Authentication → URL Configuration**, set the Site URL to the production website and add these Redirect URLs:
    - https://www.simplicontax.com/portal.html
-   - http://127.0.0.1:2323/portal.html while testing locally
+   - http://127.0.0.1:1221/portal.html while testing locally
    - Add the exact Vercel preview URL only when a preview needs auth testing.
 2. In **Authentication → Sign In / Providers → Google**, enable Google and enter the Web Client ID and Client Secret from Google Auth Platform. In Google, use the Supabase callback URL shown on that provider page (for this project it is https://akhspwdezqesikfzymth.supabase.co/auth/v1/callback) as an Authorized redirect URI.
-3. In **Authentication → Sign In / Providers → Apple**, enable Apple and enter the Services ID/client ID plus the secret generated from the Apple Team ID, Key ID, and Sign in with Apple private key. Configure the same Supabase callback URL as the website return URL in Apple Developer.
-4. In **Authentication → Sign In / Providers → Phone**, enable phone sign-in and phone sign-ups, then configure a supported SMS provider such as Twilio, MessageBird, Vonage, or TextLocal. Phone numbers must be entered in E.164 format, such as +14243025536.
 
-Google, Apple, and SMS provider secrets belong only in the provider dashboards and Supabase Authentication settings. Do not add them to Vite or commit them to this repository. Test each provider with a new Client account and confirm the user appears in Portal → Users → Clients before production launch.
+The Google provider secret belongs only in Google Auth Platform and Supabase Authentication settings. Do not add it to Vite or commit it to this repository. Test with a new Client account and confirm the user appears in Portal → Users → Clients before production launch.
 
 ## Sending email from info@simplicontax.com
 

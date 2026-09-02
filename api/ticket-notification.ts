@@ -9,7 +9,7 @@ const corsHeaders = {
 };
 
 type Role = 'admin' | 'team' | 'client';
-type Profile = { id: string; email: string | null; full_name: string; role: Role; active: boolean };
+type Profile = { id: string; email: string; full_name: string; role: Role; active: boolean };
 type Ticket = { id: string; ticket_number: string; subject: string; country: string; tax_year: number; status: string; priority: string; requester_id: string; assigned_to: string | null };
 type EmailEvent = { id: string; ticket_id: string; actor_id: string; event_type: string; detail: string; created_at: string; attempts: number };
 
@@ -107,7 +107,7 @@ export default {
     const activeProfiles = (profiles ?? []) as Profile[];
     const requester = activeProfiles.find((profile) => profile.id === ticket.requester_id);
     const assigned = activeProfiles.find((profile) => profile.id === ticket.assigned_to);
-    const administrator = activeProfiles.find((profile) => profile.role === 'admin' && profile.email?.toLowerCase() === 'info@simplicontax.com');
+    const administrator = activeProfiles.find((profile) => profile.role === 'admin' && profile.email.toLowerCase() === 'info@simplicontax.com');
     if (!requester || !administrator) throw new Error('Ticket recipients are not configured');
 
     const transporter = nodemailer.createTransport({ host: smtpHost, port: smtpPort, secure: smtpPort === 465, auth: { user: smtpUser, pass: smtpPass } });
@@ -117,8 +117,7 @@ export default {
       const recipients = caller.role === 'client'
         ? [administrator, ...(assigned?.role === 'team' ? [assigned] : [])]
         : [requester, ...(event.event_type === 'assignment_changed' && assigned?.role === 'team' ? [assigned] : [])];
-      const emailRecipients = recipients.filter((profile): profile is Profile & { email: string } => profile.id !== caller.id && Boolean(profile.email));
-      const uniqueRecipients = [...new Map(emailRecipients.map((profile) => [profile.email.toLowerCase(), profile])).values()];
+      const uniqueRecipients = [...new Map(recipients.filter((profile) => profile.id !== caller.id).map((profile) => [profile.email.toLowerCase(), profile])).values()];
       let eventComplete = true;
       for (const recipient of uniqueRecipients) {
         const normalizedEmail = recipient.email.toLowerCase();
