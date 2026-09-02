@@ -12,6 +12,7 @@ type Role = 'admin' | 'team' | 'client';
 type Profile = { id: string; email: string; full_name: string; role: Role; active: boolean };
 type Ticket = { id: string; ticket_number: string; subject: string; country: string; tax_year: number; status: string; priority: string; requester_id: string; assigned_to: string | null };
 type EmailEvent = { id: string; ticket_id: string; actor_id: string; event_type: string; detail: string; created_at: string; attempts: number };
+type TicketActivity = { id: string; ticket_id: string; author_id: string; body: string; is_system: boolean; created_at: string };
 
 const eventLabels: Record<string, string> = {
   ticket_created: 'New client request',
@@ -29,6 +30,18 @@ function titleCase(value: string): string {
   return value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+function activityEventType(activity: TicketActivity): string {
+  if (activity.is_system && /^Request routed to /i.test(activity.body)) return 'ticket_created';
+  if (activity.is_system && / uploaded /i.test(activity.body)) return 'document_uploaded';
+  if (activity.is_system && /^Ticket .* has been assigned to /i.test(activity.body)) return 'assignment_changed';
+  if (activity.is_system && / changed status from /i.test(activity.body)) return 'workflow_changed';
+  return 'comment_added';
+}
+
+function notificationQueueIsUnavailable(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false;
+  return error.code === '42P01' || error.code === 'PGRST205' || /ticket_email_(events|deliveries)/i.test(error.message ?? '');
+}
 function renderEmail(ticket: Ticket, event: EmailEvent, actor: Profile, recipient: Profile, portalUrl: string): { subject: string; html: string; text: string } {
   const label = eventLabels[event.event_type] ?? 'Ticket updated';
   const subject = `${ticket.ticket_number} · ${label}`;
@@ -95,11 +108,25 @@ export default {
     const isParticipant = caller.role === 'admin' || ticket.requester_id === caller.id || (caller.role === 'team' && ticket.assigned_to === caller.id);
     if (!isParticipant) throw new Error('You do not have access to this ticket');
 
-    const { data: events, error: eventsError } = await adminClient.from('ticket_email_events')
+    const { data: queuedEvents, error: eventsError } = await adminClient.from('ticket_email_events')
       .select('id,ticket_id,actor_id,event_type,detail,created_at,attempts')
       .eq('ticket_id', ticketId).eq('actor_id', caller.id).is('processed_at', null)
       .order('created_at', { ascending: true }).limit(20);
-    if (eventsError) throw eventsError;
+    const queueAvailable = !eventsError;
+    let events = queuedEvents as EmailEvent[] | null;
+    if (eventsError) {
+      if (!notificationQueueIsUnavailable(eventsError)) throw eventsError;
+      console.warn('Ticket notification queue is unavailable; sending the latest activity directly. Apply the ticket email notification migration to enable delivery tracking.', eventsError.message);
+      const { data: activity, error: activityError } = await adminClient.from('ticket_comments')
+        .select('id,ticket_id,author_id,body,is_system,created_at')
+        .eq('ticket_id', ticketId).eq('author_id', caller.id)
+        .order('created_at', { ascending: false }).limit(1).maybeSingle();
+      if (activityError) throw activityError;
+      if (!activity) throw new Error('No ticket activity is available for notification');
+      const typedActivity = activity as TicketActivity;
+      events = [{ id: typedActivity.id, ticket_id: typedActivity.ticket_id, actor_id: typedActivity.author_id, event_type: activityEventType(typedActivity), detail: typedActivity.body, created_at: typedActivity.created_at, attempts: 0 }];
+    }
+
     if (!events?.length) return Response.json({ message: 'No pending notifications', sent: 0 }, { headers: corsHeaders });
 
     const { data: profiles, error: profilesError } = await adminClient.from('profiles').select('id,email,full_name,role,active').eq('active', true);
@@ -113,7 +140,7 @@ export default {
     const transporter = nodemailer.createTransport({ host: smtpHost, port: smtpPort, secure: smtpPort === 465, auth: { user: smtpUser, pass: smtpPass } });
     let sent = 0;
     let failed = 0;
-    for (const event of events as EmailEvent[]) {
+    for (const event of events) {
       const recipients = caller.role === 'client'
         ? [administrator, ...(assigned?.role === 'team' ? [assigned] : [])]
         : [requester, ...(event.event_type === 'assignment_changed' && assigned?.role === 'team' ? [assigned] : [])];
@@ -121,21 +148,26 @@ export default {
       let eventComplete = true;
       for (const recipient of uniqueRecipients) {
         const normalizedEmail = recipient.email.toLowerCase();
-        const { data: existing } = await adminClient.from('ticket_email_deliveries').select('id,sent_at,attempts').eq('event_id', event.id).eq('recipient_email', normalizedEmail).maybeSingle();
+        let existing: { id: string; sent_at: string | null; attempts: number } | null = null;
+        if (queueAvailable) {
+          const { data, error: deliveryLookupError } = await adminClient.from('ticket_email_deliveries').select('id,sent_at,attempts').eq('event_id', event.id).eq('recipient_email', normalizedEmail).maybeSingle();
+          if (deliveryLookupError) throw deliveryLookupError;
+          existing = data;
+        }
         if (existing?.sent_at) continue;
         const attempts = Number(existing?.attempts ?? 0) + 1;
         const delivery = renderEmail(ticket as Ticket, event, caller as Profile, recipient, portalUrl);
         try {
           await transporter.sendMail({ from: `"Simplicon Tax Advisors" <${smtpFrom}>`, replyTo: 'info@simplicontax.com', to: normalizedEmail, subject: delivery.subject, text: delivery.text, html: delivery.html });
-          await adminClient.from('ticket_email_deliveries').upsert({ event_id: event.id, recipient_email: normalizedEmail, attempts, sent_at: new Date().toISOString(), last_error: null }, { onConflict: 'event_id,recipient_email' });
+          if (queueAvailable) await adminClient.from('ticket_email_deliveries').upsert({ event_id: event.id, recipient_email: normalizedEmail, attempts, sent_at: new Date().toISOString(), last_error: null }, { onConflict: 'event_id,recipient_email' });
           sent += 1;
         } catch (sendError) {
           eventComplete = false;
           failed += 1;
-          await adminClient.from('ticket_email_deliveries').upsert({ event_id: event.id, recipient_email: normalizedEmail, attempts, last_error: sendError instanceof Error ? sendError.message.slice(0, 1000) : 'SMTP delivery failed' }, { onConflict: 'event_id,recipient_email' });
+          if (queueAvailable) await adminClient.from('ticket_email_deliveries').upsert({ event_id: event.id, recipient_email: normalizedEmail, attempts, last_error: sendError instanceof Error ? sendError.message.slice(0, 1000) : 'SMTP delivery failed' }, { onConflict: 'event_id,recipient_email' });
         }
       }
-      await adminClient.from('ticket_email_events').update({ attempts: event.attempts + 1, processed_at: eventComplete ? new Date().toISOString() : null, last_error: eventComplete ? null : 'One or more recipients could not be reached' }).eq('id', event.id);
+      if (queueAvailable) await adminClient.from('ticket_email_events').update({ attempts: event.attempts + 1, processed_at: eventComplete ? new Date().toISOString() : null, last_error: eventComplete ? null : 'One or more recipients could not be reached' }).eq('id', event.id);
     }
     if (failed) return Response.json({ error: 'One or more notification emails could not be sent', sent, failed }, { status: 502, headers: corsHeaders });
     return Response.json({ message: `${sent} notification email${sent === 1 ? '' : 's'} sent`, sent }, { headers: corsHeaders });
