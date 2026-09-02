@@ -35,11 +35,14 @@ const records: Department[] = [
 
 document.querySelectorAll<HTMLSelectElement>('[data-irs-select]').forEach((select) => {
   const type = select.dataset.irsType;
-  const departments = type === 'refund' ? [...federalRefund, ...stateDepartments] : type === 'payment' ? federalPayment : records;
+  const departments = type === 'refund' ? [...federalRefund, ...stateDepartments] : type === 'payment' ? [...federalPayment, ...stateDepartments] : records;
   select.replaceChildren(new Option('Select Department', ''));
+  select.size = 1;
   departments.forEach(([label, url]) => select.add(new Option(label, url)));
   const row = select.closest<HTMLElement>('[data-irs-row]') ?? select.closest<HTMLElement>('.resource-table-row');
   const go = row?.querySelector<HTMLAnchorElement>('[data-irs-go]');
+  select.addEventListener('focus', () => { select.size = Math.min(7, select.options.length); });
+  select.addEventListener('blur', () => { select.size = 1; });
   select.addEventListener('change', () => {
     const selected = select.value;
     if (go) {
