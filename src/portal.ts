@@ -1,11 +1,11 @@
-import type { User } from '@supabase/supabase-js';
+import type { Provider, User } from '@supabase/supabase-js';
 import { isSupabaseConfigured, supabase } from './supabase';
 import { mountFloatingContact } from './floating-contact';
 
 type Role = 'client' | 'team' | 'admin';
 type TicketStatus = 'new' | 'open' | 'work_in_progress' | 'pending' | 'pending_for_review' | 'waiting_for_client' | 'completed' | 'waiting_on_client' | 'in_review' | 'ready_for_review' | 'complete';
 type WorkspaceView = 'tickets' | 'documents' | 'users' | 'organizer';
-type Profile = { id:string; email:string; fullName:string; phone:string; jobTitle:string; role:Role; active:boolean; frozenAt?:string|null; removedAt?:string|null };
+type Profile = { id:string; email:string|null; fullName:string; phone:string; jobTitle:string; role:Role; active:boolean; frozenAt?:string|null; removedAt?:string|null };
 type Activity = { id:string; author:string; authorInitials:string; text:string; time:string; system:boolean };
 type TicketDocument = { id:string; name:string; size:string; type:string; uploadedBy:string; uploadedById:string; createdAt?:string; storagePath?:string };
 type Ticket = {
@@ -13,7 +13,7 @@ type Ticket = {
   assigneeId:string; assigneeName:string; requesterId:string; requesterName:string; updated:string; description:string;
   activities:Activity[]; documents:TicketDocument[];
 };
-type DbProfile = { id:string; email:string; full_name:string; phone:string|null; job_title:string|null; role:Role; active:boolean; frozen_at?:string|null; removed_at?:string|null };
+type DbProfile = { id:string; email:string|null; full_name:string; phone:string|null; job_title:string|null; role:Role; active:boolean; frozen_at?:string|null; removed_at?:string|null };
 type DbTicket = { id:string; ticket_number:string; requester_id:string; subject:string; description:string; country:string; tax_year:number; status:TicketStatus; priority:string; assigned_to:string|null; updated_at:string };
 type DbComment = { id:string; ticket_id:string; author_id:string; body:string; is_system:boolean; created_at:string };
 type DbDocument = { id:string; ticket_id:string; uploaded_by:string; storage_path:string; file_name:string; size_bytes:number; document_type:string|null; created_at:string };
@@ -36,6 +36,7 @@ let pendingDeleteDocumentId = '';
 let selectedTicketId = '';
 let activeFilter = 'all';
 let authMode:'signin'|'signup' = 'signin';
+let pendingPhoneNumber = '';
 let organizerGatePending = false;
 let workspaceEntryInFlight = false;
 let currentOrganizer:TaxOrganizer|null = null;
@@ -132,6 +133,36 @@ async function authenticate(event:SubmitEvent):Promise<void> {
   }catch(error){showToast(error instanceof Error?error.message:'Authentication failed.',true);}finally{setButtonLoading(submitButton,false);}
 }
 
+async function authenticateWithProvider(provider:Provider,button:HTMLButtonElement):Promise<void> {
+  if(!supabase){showToast('The secure workspace is unavailable.',true);return;}
+  const originalHtml=button.innerHTML;button.disabled=true;button.setAttribute('aria-busy','true');button.innerHTML='<span class="round-spinner" aria-hidden="true"></span>';
+  try{
+    const {error}=await supabase.auth.signInWithOAuth({provider,options:{redirectTo:window.location.origin+'/portal.html'}});
+    if(error)throw error;
+  }catch(error){showToast(error instanceof Error?error.message:'Unable to continue with '+provider+'.',true);button.disabled=false;button.removeAttribute('aria-busy');button.innerHTML=originalHtml;}
+}
+
+function resetPhoneAuth():void {
+  pendingPhoneNumber='';el<HTMLFormElement>('phoneAuthForm').reset();el<HTMLElement>('phoneNumberField').classList.remove('hidden');el<HTMLElement>('phoneOtpField').classList.add('hidden');el<HTMLInputElement>('authPhoneOtp').required=false;
+  el<HTMLElement>('phoneAuthTitle').textContent='Sign in with your phone';el<HTMLElement>('phoneAuthIntro').textContent='Enter your mobile number with country code. We will send a one-time verification code by SMS.';el<HTMLButtonElement>('phoneAuthSubmit').textContent='Send code';
+}
+
+async function authenticateWithPhone(event:SubmitEvent):Promise<void> {
+  event.preventDefault();if(!supabase){showToast('The secure workspace is unavailable.',true);return;}
+  const button=el<HTMLButtonElement>('phoneAuthSubmit');setButtonLoading(button,true,pendingPhoneNumber?'Verifying…':'Sending code…');
+  try{
+    if(!pendingPhoneNumber){
+      const phone=el<HTMLInputElement>('authPhone').value.replace(/[\s()-]/g,'');
+      if(!/^\+[1-9]\d{7,14}$/.test(phone))throw new Error('Enter a valid phone number with country code, for example +14243025536.');
+      const {error}=await supabase.auth.signInWithOtp({phone,options:{shouldCreateUser:true}});if(error)throw error;
+      pendingPhoneNumber=phone;el<HTMLElement>('phoneNumberField').classList.add('hidden');el<HTMLElement>('phoneOtpField').classList.remove('hidden');el<HTMLInputElement>('authPhoneOtp').required=true;
+      el<HTMLElement>('phoneAuthTitle').textContent='Enter your verification code';el<HTMLElement>('phoneAuthIntro').textContent='We sent a one-time code to '+phone+'.';button.dataset.originalHtml='Verify and continue';el<HTMLInputElement>('authPhoneOtp').focus();return;
+    }
+    const token=el<HTMLInputElement>('authPhoneOtp').value.trim();if(!/^\d{6,10}$/.test(token))throw new Error('Enter the verification code sent to your phone.');
+    const {data,error}=await supabase.auth.verifyOtp({phone:pendingPhoneNumber,token,type:'sms'});if(error||!data.user)throw error??new Error('Unable to verify this code.');
+    el<HTMLDialogElement>('phoneAuthDialog').close();resetPhoneAuth();organizerGatePending=true;await enterAuthenticatedWorkspace(data.user);
+  }catch(error){showToast(error instanceof Error?error.message:'Phone authentication failed.',true);}finally{setButtonLoading(button,false);}
+}
 async function enterAuthenticatedWorkspace(user:User):Promise<void> {
   if(!supabase||workspaceEntryInFlight)return;workspaceEntryInFlight=true;
   try{const {data,error}=await supabase.from('profiles').select('*').eq('id',user.id).single();
@@ -153,7 +184,7 @@ function showWorkspace():void {
   el<HTMLElement>('profileName').textContent=currentProfile.fullName;
   el<HTMLElement>('profileRole').textContent=`${roleLabel(currentProfile.role)} workspace`;
   el<HTMLElement>('greetingName').textContent=currentProfile.fullName.split(' ')[0];updateLocalGreeting();
-  el<HTMLElement>('topbarProfileName').textContent=currentProfile.fullName;el<HTMLElement>('topbarProfileRole').textContent=roleLabel(currentProfile.role);el<HTMLElement>('accountMenuEmail').textContent=currentProfile.email;
+  el<HTMLElement>('topbarProfileName').textContent=currentProfile.fullName;el<HTMLElement>('topbarProfileRole').textContent=roleLabel(currentProfile.role);el<HTMLElement>('accountMenuEmail').textContent=currentProfile.email||currentProfile.phone||'Client account';
   el<HTMLElement>('topbarRole').textContent=`${roleLabel(currentProfile.role)} access`;el<HTMLElement>('overviewRole').textContent=roleLabel(currentProfile.role);
   document.querySelectorAll<HTMLElement>('.sidebar-profile .avatar,#topbarAvatar').forEach((avatar)=>avatar.textContent=initials(currentProfile!.fullName));
   if(!tickets.some((ticket)=>ticket.id===selectedTicketId))selectedTicketId=tickets[0]?.id??'';
@@ -280,7 +311,7 @@ function renderUserDirectory():void {
   el<HTMLElement>('userPageList').innerHTML=visible.map((profile)=>{
     const status=profile.active?'Active':profile.frozenAt?'Frozen':'Inactive';
     const actions=profile.role==='team'?`<div class="user-card-actions"><button data-user-action="${profile.active?'freeze':'unfreeze'}" data-user-id="${profile.id}">${profile.active?'Freeze':'Restore'}</button><button class="danger" data-user-action="remove" data-user-id="${profile.id}">Remove</button></div>`:'';
-    return `<article class="user-directory-card"><span class="avatar">${initials(profile.fullName)}</span><div class="user-card-copy"><span>${profile.role==='client'?'Client account':escapeHtml(profile.jobTitle||'Team member')}</span><strong>${escapeHtml(profile.fullName)}</strong><small>${escapeHtml(profile.email)}</small><p>${escapeHtml(profile.phone||'No phone provided')}</p></div><b class="user-state ${status.toLowerCase()}">${status}</b>${actions}</article>`;
+    return `<article class="user-directory-card"><span class="avatar">${initials(profile.fullName)}</span><div class="user-card-copy"><span>${profile.role==='client'?'Client account':escapeHtml(profile.jobTitle||'Team member')}</span><strong>${escapeHtml(profile.fullName)}</strong><small>${escapeHtml(profile.email||'Phone sign-in')}</small><p>${escapeHtml(profile.phone||'No phone provided')}</p></div><b class="user-state ${status.toLowerCase()}">${status}</b>${actions}</article>`;
   }).join('')||`<div class="empty-state"><h3>No ${activeUserDirectoryTab==='clients'?'clients':'Team members'} yet</h3><p>${activeUserDirectoryTab==='clients'?'Client accounts will appear after registration.':'Invite the first specialist to create their account.'}</p></div>`;
   el<HTMLElement>('userPageList').querySelectorAll<HTMLButtonElement>('[data-user-action]').forEach((button)=>button.addEventListener('click',()=>openUserAction(button.dataset.userId??'',button.dataset.userAction as 'freeze'|'unfreeze'|'remove')));
 }
@@ -455,7 +486,7 @@ async function inviteTeamMember(event:SubmitEvent):Promise<void> {
   if(!supabase){showToast('The secure workspace is unavailable.',true);return;}
   const button=el<HTMLFormElement>('teamInviteForm').querySelector<HTMLButtonElement>('button[type="submit"]')!;
   const payload={fullName:el<HTMLInputElement>('teamFullName').value.trim(),email:el<HTMLInputElement>('teamEmail').value.trim().toLowerCase(),phone:el<HTMLInputElement>('teamPhone').value.trim(),jobTitle:el<HTMLInputElement>('teamJobTitle').value.trim(),redirectTo:`${window.location.origin}/portal.html`};
-  if(teamMembers.some((member)=>member.email.toLowerCase()===payload.email)){showToast('A team member already uses this email.',true);return;}
+  if(teamMembers.some((member)=>member.email?.toLowerCase()===payload.email)){showToast('A team member already uses this email.',true);return;}
   setButtonLoading(button,true,'Sending…');try{
     const {data,error}=await supabase.functions.invoke('invite-team-member',{body:payload});if(error){showToast(error.message,true);return;}
     showToast(String((data as {message?:string})?.message??'Invitation sent.'));await loadSupabaseData();el<HTMLFormElement>('teamInviteForm').reset();el<HTMLDialogElement>('teamDialog').close();renderAssigneeOptions();renderUserDirectory();
@@ -463,7 +494,7 @@ async function inviteTeamMember(event:SubmitEvent):Promise<void> {
 }
 
 function openProfile():void {
-  if(!currentProfile)return;el<HTMLInputElement>('profileFullName').value=currentProfile.fullName;el<HTMLInputElement>('profileEmail').value=currentProfile.email;el<HTMLInputElement>('profilePhone').value=currentProfile.phone;el<HTMLInputElement>('profileRoleField').value=roleLabel(currentProfile.role);el<HTMLDialogElement>('profileDialog').showModal();
+  if(!currentProfile)return;el<HTMLInputElement>('profileFullName').value=currentProfile.fullName;el<HTMLInputElement>('profileEmail').value=currentProfile.email??'';el<HTMLInputElement>('profileEmail').placeholder=currentProfile.email?'':'Not provided for phone sign-in';el<HTMLInputElement>('profilePhone').value=currentProfile.phone;el<HTMLInputElement>('profileRoleField').value=roleLabel(currentProfile.role);el<HTMLDialogElement>('profileDialog').showModal();
 }
 
 async function saveProfile(event:SubmitEvent):Promise<void> {
@@ -483,6 +514,9 @@ function wireEvents():void {
   const authMenu=el<HTMLButtonElement>('authMenuToggle');const authNav=el<HTMLElement>('authSiteNav');
   authMenu.addEventListener('click',()=>{const open=authNav.classList.toggle('open');authMenu.setAttribute('aria-expanded',String(open));});authNav.querySelectorAll('a').forEach((link)=>link.addEventListener('click',()=>{authNav.classList.remove('open');authMenu.setAttribute('aria-expanded','false');}));
   document.querySelectorAll<HTMLButtonElement>('[data-auth-mode]').forEach((button)=>button.addEventListener('click',()=>setAuthMode(button.dataset.authMode as 'signin'|'signup')));el<HTMLFormElement>('authForm').addEventListener('submit',(event)=>void authenticate(event));
+  document.querySelectorAll<HTMLButtonElement>('[data-auth-provider]').forEach((button)=>button.addEventListener('click',()=>void authenticateWithProvider(button.dataset.authProvider as Provider,button)));
+  const phoneAuthDialog=el<HTMLDialogElement>('phoneAuthDialog');el<HTMLButtonElement>('phoneAuthButton').addEventListener('click',()=>{resetPhoneAuth();phoneAuthDialog.showModal();});phoneAuthDialog.addEventListener('close',resetPhoneAuth);el<HTMLFormElement>('phoneAuthForm').addEventListener('submit',(event)=>void authenticateWithPhone(event));
+  document.querySelectorAll<HTMLButtonElement>('[data-phone-auth-close]').forEach((button)=>button.addEventListener('click',()=>phoneAuthDialog.close()));
   el<HTMLButtonElement>('forgotPassword').addEventListener('click',async()=>{if(!supabase){showToast('The secure workspace is unavailable.',true);return;}const email=el<HTMLInputElement>('authEmail').value.trim();if(!email){showToast('Enter your email address first.',true);return;}const button=el<HTMLButtonElement>('forgotPassword');setButtonLoading(button,true,'Sending reset link…');try{const {error}=await supabase.auth.resetPasswordForEmail(email,{redirectTo:`${window.location.origin}/portal.html`});showToast(error?error.message:'Password reset email sent.',Boolean(error));}finally{setButtonLoading(button,false);}});
   const signOut=async(button:HTMLButtonElement)=>{setButtonLoading(button,true,'Signing out…');try{if(!supabase)throw new Error('The secure workspace is unavailable.');const {error}=await supabase.auth.signOut();if(error)throw error;currentProfile=null;finishBootstrap(true);showToast('You have signed out securely.');}catch(error){showToast(error instanceof Error?error.message:'Unable to sign out.',true);}finally{setButtonLoading(button,false);}};
   ['signOutButton','sidebarSignOutButton'].forEach((id)=>el<HTMLButtonElement>(id).addEventListener('click',()=>void signOut(el<HTMLButtonElement>(id))));
