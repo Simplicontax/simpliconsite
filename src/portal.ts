@@ -104,8 +104,8 @@ function setAuthMode(mode:'signin'|'signup'):void {
   el<HTMLElement>('authHeaderSignin').classList.toggle('active',mode==='signin');
   el<HTMLElement>('authHeaderSignup').classList.toggle('active',mode==='signup');
   document.querySelectorAll<HTMLElement>('.signup-field').forEach((field)=>field.classList.toggle('hidden',mode==='signin'));
-  el<HTMLElement>('authTitle').textContent=mode==='signin'?'Sign in to your workspace':'Create your client account';
-  el<HTMLElement>('authSubtitle').textContent=mode==='signin'?'Use the email address connected to your account.':'Team accounts are created only by the Simplicon administrator.';
+  el<HTMLElement>('authTitle').textContent=mode==='signin'?'Sign in to your workspace':'Create your account';
+  el<HTMLElement>('authSubtitle').textContent=mode==='signin'?'Use the email address connected to your account.':'';
   el<HTMLButtonElement>('authSubmit').innerHTML=mode==='signin'?'Sign in securely <span>→</span>':'Create secure account <span>→</span>';
   el<HTMLInputElement>('authName').required=mode==='signup';
   el<HTMLInputElement>('authPassword').autocomplete=mode==='signin'?'current-password':'new-password';
