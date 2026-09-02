@@ -538,3 +538,12 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 /* Keep mobile authentication steady when the on-screen keyboard opens. */
 @media(max-width:900px){.auth-layout{min-height:calc(100svh - 84px)}.auth-panel{min-height:0;align-content:start;place-items:start center}.auth-card{min-height:0;margin-block:1rem}.auth-card input{font-size:16px}}
 @media(max-width:560px){.auth-layout{min-height:calc(100svh - 72px)}.auth-card{margin-block:0}}
+
+/* Keep both auth modes in one stable viewport and make the active mode obvious. */
+.auth-shell{height:100svh;min-height:0;overflow:hidden}
+.auth-layout{overflow:hidden}
+.auth-panel{min-height:0;overflow-y:auto;scrollbar-width:none}
+.auth-panel::-webkit-scrollbar{display:none}
+.auth-shell[data-auth-mode="signup"] .forgot-link{visibility:hidden;pointer-events:none}
+.auth-header-actions>a:first-child.active{display:flex;align-items:center;padding:.65rem .85rem;border-radius:9px;color:#0e5273;background:#eaf4f6;box-shadow:inset 0 0 0 1px #cfe2e7}
+.auth-header-actions .signup.active{background:#2f8058;box-shadow:0 0 0 3px rgba(47,128,88,.16),0 8px 20px rgba(14,82,115,.2)}

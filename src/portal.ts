@@ -99,12 +99,14 @@ function showOrganizerGate():void {
 
 function setAuthMode(mode:'signin'|'signup'):void {
   authMode=mode;
+  el<HTMLElement>('authShell').dataset.authMode=mode;
   document.querySelectorAll<HTMLButtonElement>('[data-auth-mode]').forEach((button)=>button.classList.toggle('active',button.dataset.authMode===mode));
-  el<HTMLElement>('authHeaderSignin').classList.toggle('active',mode==='signin');
-  el<HTMLElement>('authHeaderSignup').classList.toggle('active',mode==='signup');
+  const signinLink=el<HTMLAnchorElement>('authHeaderSignin');const signupLink=el<HTMLAnchorElement>('authHeaderSignup');
+  signinLink.classList.toggle('active',mode==='signin');signupLink.classList.toggle('active',mode==='signup');
+  signinLink.setAttribute('aria-current',mode==='signin'?'page':'false');signupLink.setAttribute('aria-current',mode==='signup'?'page':'false');
   document.querySelectorAll<HTMLElement>('.signup-field').forEach((field)=>field.classList.toggle('hidden',mode==='signin'));
   el<HTMLElement>('authTitle').textContent=mode==='signin'?'Sign in to your workspace':'Create your account';
-  el<HTMLElement>('authSubtitle').textContent=mode==='signin'?'Use the email address connected to your account.':'';
+  el<HTMLElement>('authSubtitle').textContent=mode==='signin'?'Use the email address connected to your account.':'Create your secure client workspace.';
   el<HTMLButtonElement>('authSubmit').innerHTML=mode==='signin'?'Sign in securely <span>→</span>':'Create secure account <span>→</span>';
   el<HTMLInputElement>('authName').required=mode==='signup';
   el<HTMLInputElement>('authPassword').autocomplete=mode==='signin'?'current-password':'new-password';
