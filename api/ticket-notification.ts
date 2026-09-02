@@ -42,6 +42,13 @@ function notificationQueueIsUnavailable(error: { code?: string; message?: string
   if (!error) return false;
   return error.code === '42P01' || error.code === 'PGRST205' || /ticket_email_(events|deliveries)/i.test(error.message ?? '');
 }
+function smtpFailureDetail(error: unknown): string {
+  const smtpError = error as { code?: string; responseCode?: number } | null;
+  if (smtpError?.code === 'EAUTH' || smtpError?.responseCode === 535) return 'SMTP login was rejected. Verify SMTP_USER and SMTP_PASS use the GoDaddy mailbox credentials.';
+  if (smtpError?.code === 'ESOCKET' || smtpError?.code === 'ECONNECTION' || smtpError?.code === 'ETIMEDOUT') return 'Could not connect securely to the SMTP server. Verify SMTP_HOST and SMTP_PORT.';
+  if (smtpError?.code === 'EENVELOPE') return 'The SMTP provider rejected the configured sender address. Verify SMTP_FROM matches the authenticated mailbox.';
+  return 'The SMTP provider rejected the message. Review the Vercel Function log for the provider response.';
+}
 function renderEmail(ticket: Ticket, event: EmailEvent, actor: Profile, recipient: Profile, portalUrl: string): { subject: string; html: string; text: string } {
   const label = eventLabels[event.event_type] ?? 'Ticket updated';
   const subject = `${ticket.ticket_number} · ${label}`;
@@ -140,6 +147,7 @@ export default {
     const transporter = nodemailer.createTransport({ host: smtpHost, port: smtpPort, secure: smtpPort === 465, auth: { user: smtpUser, pass: smtpPass } });
     let sent = 0;
     let failed = 0;
+    let failureDetail = ';
     for (const event of events) {
       const recipients = caller.role === 'client'
         ? [administrator, ...(assigned?.role === 'team' ? [assigned] : [])]
@@ -164,12 +172,13 @@ export default {
         } catch (sendError) {
           eventComplete = false;
           failed += 1;
+          failureDetail ||= smtpFailureDetail(sendError);
           if (queueAvailable) await adminClient.from('ticket_email_deliveries').upsert({ event_id: event.id, recipient_email: normalizedEmail, attempts, last_error: sendError instanceof Error ? sendError.message.slice(0, 1000) : 'SMTP delivery failed' }, { onConflict: 'event_id,recipient_email' });
         }
       }
       if (queueAvailable) await adminClient.from('ticket_email_events').update({ attempts: event.attempts + 1, processed_at: eventComplete ? new Date().toISOString() : null, last_error: eventComplete ? null : 'One or more recipients could not be reached' }).eq('id', event.id);
     }
-    if (failed) return Response.json({ error: 'One or more notification emails could not be sent', sent, failed }, { status: 502, headers: corsHeaders });
+    if (failed) return Response.json({ error: 'One or more notification emails could not be sent', detail: failureDetail, sent, failed }, { status: 502, headers: corsHeaders });
     return Response.json({ message: `${sent} notification email${sent === 1 ? '' : 's'} sent`, sent }, { headers: corsHeaders });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
