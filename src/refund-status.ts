@@ -23,6 +23,23 @@ const stateDepartments: Department[] = [
   ['WI', 'https://revenue.wi.gov/Pages/OnlineServices/refundstatus.aspx'],
 ];
 
+const paymentStateDepartments: Department[] = [
+  ['AL', 'https://myalabamataxes.alabama.gov/'], ['AK', 'https://tax.alaska.gov/'], ['AZ', 'https://azdor.gov/'],
+  ['AR', 'https://www.dfa.arkansas.gov/'], ['CA', 'https://www.ftb.ca.gov/'], ['CO', 'https://tax.colorado.gov/'],
+  ['CT', 'https://portal.ct.gov/DRS'], ['DE', 'https://tax.delaware.gov/'], ['DC', 'https://otr.cfo.dc.gov/'],
+  ['GA', 'https://dor.georgia.gov/'], ['HI', 'https://tax.hawaii.gov/'], ['ID', 'https://tax.idaho.gov/'],
+  ['IL', 'https://tax.illinois.gov/'], ['IN', 'https://www.in.gov/dor/'], ['IA', 'https://tax.iowa.gov/'],
+  ['KS', 'https://www.ksrevenue.gov/'], ['KY', 'https://revenue.ky.gov/'], ['LA', 'https://revenue.louisiana.gov/'],
+  ['ME', 'https://www.maine.gov/revenue/'], ['MD', 'https://www.marylandtaxes.gov/'], ['MA', 'https://www.mass.gov/dor'],
+  ['MI', 'https://www.michigan.gov/taxes'], ['MN', 'https://www.revenue.state.mn.us/'], ['MS', 'https://www.dor.ms.gov/'],
+  ['MO', 'https://dor.mo.gov/'], ['MT', 'https://mtrevenue.gov/'], ['NE', 'https://revenue.nebraska.gov/'],
+  ['NJ', 'https://www.nj.gov/treasury/taxation/'], ['NM', 'https://www.tax.newmexico.gov/'], ['NY', 'https://www.tax.ny.gov/'],
+  ['NC', 'https://www.ncdor.gov/'], ['ND', 'https://www.tax.nd.gov/'], ['OH', 'https://tax.ohio.gov/'],
+  ['OK', 'https://oklahoma.gov/tax.html'], ['OR', 'https://www.oregon.gov/dor'], ['PA', 'https://www.revenue.pa.gov/'],
+  ['RI', 'https://tax.ri.gov/'], ['SC', 'https://dor.sc.gov/'], ['UT', 'https://tax.utah.gov/'],
+  ['VT', 'https://tax.vermont.gov/'], ['VA', 'https://www.tax.virginia.gov/'], ['WA', 'https://dor.wa.gov/'],
+  ['WV', 'https://tax.wv.gov/'], ['WI', 'https://www.revenue.wi.gov/'],
+];
 const federalRefund: Department[] = [
   ['Federal Regular', 'https://www.irs.gov/refunds'],
   ['Federal Amendment', 'https://www.irs.gov/filing/wheres-my-amended-return'],
@@ -35,7 +52,7 @@ const records: Department[] = [
 
 document.querySelectorAll<HTMLSelectElement>('[data-irs-select]').forEach((select) => {
   const type = select.dataset.irsType;
-  const departments = type === 'refund' ? [...federalRefund, ...stateDepartments] : type === 'payment' ? [...federalPayment, ...stateDepartments] : records;
+  const departments = type === 'refund' ? [...federalRefund, ...stateDepartments] : type === 'payment' ? [...federalPayment, ...paymentStateDepartments] : records;
   select.replaceChildren(new Option('Select Department', ''));
   select.size = 1;
   departments.forEach(([label, url]) => select.add(new Option(label, url)));
