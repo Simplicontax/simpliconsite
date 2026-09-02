@@ -147,7 +147,7 @@ export default {
     const transporter = nodemailer.createTransport({ host: smtpHost, port: smtpPort, secure: smtpPort === 465, auth: { user: smtpUser, pass: smtpPass } });
     let sent = 0;
     let failed = 0;
-    let failureDetail = ';
+    let failureDetail = '';
     for (const event of events) {
       const recipients = caller.role === 'client'
         ? [administrator, ...(assigned?.role === 'team' ? [assigned] : [])]
