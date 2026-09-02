@@ -50,13 +50,62 @@ const records: Department[] = [
   ['Get Transcript by Mail', 'https://www.irs.gov/individuals/get-transcript'],
 ];
 
+const closeDepartmentPickers = (except?: HTMLElement): void => {
+  document.querySelectorAll<HTMLElement>('.department-picker.open').forEach((picker) => {
+    if (picker === except) return;
+    picker.classList.remove('open');
+    picker.querySelector<HTMLButtonElement>('.department-picker-trigger')?.setAttribute('aria-expanded', 'false');
+  });
+};
+
 document.querySelectorAll<HTMLSelectElement>('[data-irs-select]').forEach((select) => {
   const type = select.dataset.irsType;
   const departments = type === 'refund' ? [...federalRefund, ...stateDepartments] : type === 'payment' ? [...federalPayment, ...paymentStateDepartments] : records;
-  select.replaceChildren(new Option('Select Department', ''));
+  const placeholder = type === 'records' ? 'Select Transcript Method' : 'Select Department';
+  select.replaceChildren(new Option(placeholder, ''));
   departments.forEach(([label, url]) => select.add(new Option(label, url)));
   const row = select.closest<HTMLElement>('[data-irs-row]') ?? select.closest<HTMLElement>('.resource-table-row');
   const go = row?.querySelector<HTMLAnchorElement>('[data-irs-go]');
+  select.hidden = true;
+
+  const picker = document.createElement('div');
+  picker.className = 'department-picker';
+  const trigger = document.createElement('button');
+  trigger.type = 'button';
+  trigger.className = 'department-picker-trigger';
+  trigger.setAttribute('aria-haspopup', 'listbox');
+  trigger.setAttribute('aria-expanded', 'false');
+  trigger.innerHTML = '<span></span><b aria-hidden="true">⌄</b>';
+  trigger.querySelector('span')!.textContent = placeholder;
+  const menu = document.createElement('div');
+  menu.className = 'department-picker-menu';
+  menu.setAttribute('role', 'listbox');
+
+  departments.forEach(([label, url]) => {
+    const option = document.createElement('button');
+    option.type = 'button';
+    option.className = 'department-picker-option';
+    option.setAttribute('role', 'option');
+    option.textContent = label;
+    option.addEventListener('click', () => {
+      select.value = url;
+      trigger.querySelector('span')!.textContent = label;
+      select.dispatchEvent(new Event('change'));
+      closeDepartmentPickers();
+      trigger.focus();
+    });
+    menu.append(option);
+  });
+
+  picker.append(trigger, menu);
+  select.insertAdjacentElement('afterend', picker);
+  trigger.addEventListener('click', () => {
+    const opening = !picker.classList.contains('open');
+    closeDepartmentPickers(picker);
+    picker.classList.toggle('open', opening);
+    trigger.setAttribute('aria-expanded', String(opening));
+  });
+
   select.addEventListener('change', () => {
     const selected = select.value;
     if (go) {
@@ -65,5 +114,12 @@ document.querySelectorAll<HTMLSelectElement>('[data-irs-select]').forEach((selec
       go.tabIndex = selected ? 0 : -1;
     }
   });
+  go?.setAttribute('aria-disabled', 'true');
+  if (go) go.tabIndex = -1;
   go?.addEventListener('click', (event) => { if (!select.value) event.preventDefault(); });
 });
+
+document.addEventListener('click', (event) => {
+  if (!(event.target instanceof Element) || !event.target.closest('.department-picker')) closeDepartmentPickers();
+});
+document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeDepartmentPickers(); });
