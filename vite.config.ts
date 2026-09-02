@@ -13,6 +13,7 @@ export default defineConfig({
         pricing: 'pricing.html',
         services: 'services.html',
         resources: 'resources.html',
+        refundStatus: 'refund-status.html',
         portal: 'portal.html',
       },
     },
