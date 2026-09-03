@@ -1,4 +1,4 @@
-﻿import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import nodemailer from 'nodemailer';
 import process from 'node:process';
@@ -123,7 +123,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const administrator = activeProfiles.find((p) => p.role === 'admin' && p.email.toLowerCase() === 'info@simplicontax.com');
     if (!requester || !administrator) throw new Error('Ticket recipients are not configured');
 
-    const transporter = nodemailer.createTransport({ host: smtpHost, port: smtpPort, secure: smtpPort === 465, auth: { user: smtpUser, pass: smtpPass } });
+    const transporter = nodemailer.createTransport({
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpPort === 465,
+      auth: { user: smtpUser, pass: smtpPass },
+      tls: { rejectUnauthorized: false, servername: smtpHost },
+    });
     let sent = 0;
     let failed = 0;
     let failureDetail = '';
@@ -151,8 +157,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         } catch (sendError) {
           eventComplete = false;
           failed += 1;
-          failureDetail ||= smtpFailureDetail(sendError);
-          if (queueAvailable) await adminClient.from('ticket_email_deliveries').upsert({ event_id: event.id, recipient_email: normalizedEmail, attempts, last_error: sendError instanceof Error ? sendError.message.slice(0, 1000) : 'SMTP delivery failed' }, { onConflict: 'event_id,recipient_email' });
+          const rawErr = sendError as { code?: string; responseCode?: number; response?: string; message?: string } | null;
+          const errDetail = `code=${rawErr?.code ?? 'none'} responseCode=${rawErr?.responseCode ?? 'none'} response=${rawErr?.response ?? rawErr?.message ?? 'none'}`;
+          console.error('SMTP send error:', errDetail);
+          failureDetail ||= errDetail;
+          if (queueAvailable) await adminClient.from('ticket_email_deliveries').upsert({ event_id: event.id, recipient_email: normalizedEmail, attempts, last_error: errDetail.slice(0, 1000) }, { onConflict: 'event_id,recipient_email' });
         }
       }
       if (queueAvailable) await adminClient.from('ticket_email_events').update({ attempts: event.attempts + 1, processed_at: eventComplete ? new Date().toISOString() : null, last_error: eventComplete ? null : 'One or more recipients could not be reached' }).eq('id', event.id);
