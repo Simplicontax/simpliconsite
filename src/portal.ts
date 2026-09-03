@@ -86,6 +86,16 @@ async function notifyTicketParticipants(ticketId:string):Promise<boolean> {
     return true;
   }catch(error){console.error('Ticket email notification failed:',error);return false;}
 }
+async function syncTicketEmailReplies():Promise<void> {
+  if(!supabase||currentProfile?.role!=='admin')return;
+  try{
+    const {data:{session}}=await supabase.auth.getSession();if(!session)return;
+    const response=await fetch('/api/sync-ticket-replies',{method:'POST',headers:{Authorization:'Bearer '+session.access_token}});
+    if(!response.ok)return;
+    const result=await response.json() as {imported?:number};
+    if(result.imported){await loadSupabaseData();showToast(String(result.imported)+' email '+(result.imported===1?'reply was':'replies were')+' added to ticket chat.');}
+  }catch{ /* Keep workspace usable if GoDaddy is temporarily unavailable. */ }
+}
 function setButtonLoading(button:HTMLButtonElement,busy:boolean,label='Working…'):void {
   if(busy){button.dataset.originalHtml=button.innerHTML;button.disabled=true;button.classList.add('is-loading');button.innerHTML=`<span class="round-spinner" aria-hidden="true"></span><span>${escapeHtml(label)}</span>`;return;}
   button.disabled=false;button.classList.remove('is-loading');if(button.dataset.originalHtml){button.innerHTML=button.dataset.originalHtml;delete button.dataset.originalHtml;}
@@ -151,7 +161,7 @@ async function enterAuthenticatedWorkspace(user:User):Promise<void> {
     const row=data as DbProfile;
     if(!row.active){showToast('This account is inactive. Contact the administrator.',true);await supabase.auth.signOut();return;}
     currentProfile={id:row.id,email:row.email,fullName:row.full_name,phone:row.phone??'',jobTitle:row.job_title??'',role:row.role,active:row.active,frozenAt:row.frozen_at,removedAt:row.removed_at};
-    await loadSupabaseData();showWorkspace();
+    await loadSupabaseData();await syncTicketEmailReplies();showWorkspace();
   }catch(error){finishBootstrap(true);showToast(error instanceof Error?error.message:'Unable to load your workspace.',true);}finally{workspaceEntryInFlight=false;}
 }
 
