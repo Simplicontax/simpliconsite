@@ -67,20 +67,15 @@ export default {
       const safeSubject = escapeHtml(subject);
       const safeMessage = escapeHtml(message).replace(/\n/g, '<br>');
       const mailSubject = 'Website enquiry - ' + subject + ' - ' + name;
-      const html = '<!doctype html><html><body style="margin:0;background:#f3f7f8;font-family:Arial,Helvetica,sans-serif;color:#17333e">' +
-        '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:32px 12px"><tr><td align="center">' +
-        '<table role="presentation" width="620" cellspacing="0" cellpadding="0" style="max-width:620px;width:100%;overflow:hidden;border:1px solid #dfe9e8;border-radius:16px;background:#fff">' +
-        '<tr><td style="padding:24px 30px;color:#fff;background:#126b73"><div style="font-size:22px;font-weight:700">Simplicon Tax Advisors</div><div style="margin-top:5px;font-size:13px;opacity:.86">New website enquiry</div></td></tr>' +
-        '<tr><td style="padding:30px"><h1 style="margin:0 0 20px;font-size:24px;color:#123846">' + safeSubject + '</h1>' +
-        '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #e2eceb;border-radius:12px;background:#f7fafb">' +
-        '<tr><td style="padding:12px 18px;border-bottom:1px solid #e2eceb"><strong>Name</strong><br>' + safeName + '</td></tr>' +
-        '<tr><td style="padding:12px 18px;border-bottom:1px solid #e2eceb"><strong>Email</strong><br><a href="mailto:' + safeEmail + '" style="color:#126b73">' + safeEmail + '</a></td></tr>' +
-        '<tr><td style="padding:12px 18px"><strong>Phone</strong><br>' + safePhone + '</td></tr></table>' +
-        '<div style="margin-top:20px;padding:18px;border-left:4px solid #16866f;border-radius:4px 10px 10px 4px;background:#f0f8f7;line-height:1.65">' + safeMessage + '</div>' +
-        '<p style="margin:24px 0 0;font-size:12px;color:#71878f">Reply to this email to contact the prospective client.</p></td></tr>' +
-        '<tr><td style="padding:18px 30px;border-top:1px solid #e2eceb;background:#f7fafb;font-size:11px;color:#789097">Simplicon Tax Advisors - Website enquiry</td></tr>' +
-        '</table></td></tr></table></body></html>';
-      const text = 'New website enquiry\n\nFiling country: ' + subject + '\nName: ' + name + '\nEmail: ' + email + '\nPhone: ' + (phone || 'Not provided') + '\n\n' + message;
+      const siteUrl = (process.env.PORTAL_URL ?? 'https://www.simplicontax.com').replace(/\/$/, '');
+      const logoUrl = siteUrl + '/simplicon-logo-transparent.png';
+      const html = '<!doctype html><html><body style="margin:0;background:#f3f7f8;font-family:Arial,Helvetica,sans-serif;color:#183c47">' +
+        '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:36px 12px"><tr><td align="center"><table role="presentation" width="620" cellspacing="0" cellpadding="0" style="width:100%;max-width:620px;background:#fff;border:1px solid #d9e6e5;border-radius:18px;overflow:hidden">' +
+        '<tr><td style="padding:24px 30px;background:#0c4d58"><img src="' + logoUrl + '" width="164" alt="Simplicon Tax Advisors" style="display:block;width:164px;max-width:100%;height:auto;border:0"></td></tr><tr><td style="height:5px;background:#16a184;font-size:0;line-height:0">&nbsp;</td></tr>' +
+        '<tr><td style="padding:34px 30px 28px"><div style="font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#11786d">New website enquiry</div><h1 style="margin:12px 0 8px;font-size:27px;line-height:1.25;color:#123846">' + safeSubject + '</h1><p style="margin:0 0 24px;font-size:15px;line-height:1.65;color:#587078">A prospective client has contacted Simplicon Tax Advisors.</p>' +
+        '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #dce9e8;border-radius:12px;background:#f8fbfb"><tr><td style="padding:13px 18px;border-bottom:1px solid #dce9e8;font-size:13px;line-height:1.55"><strong style="color:#173f4d">Name</strong><br><span style="color:#5d747b">' + safeName + '</span></td></tr><tr><td style="padding:13px 18px;border-bottom:1px solid #dce9e8;font-size:13px;line-height:1.55"><strong style="color:#173f4d">Email</strong><br><a href="mailto:' + safeEmail + '" style="color:#11786d;text-decoration:none">' + safeEmail + '</a></td></tr><tr><td style="padding:13px 18px;font-size:13px;line-height:1.55"><strong style="color:#173f4d">Phone</strong><br><span style="color:#5d747b">' + safePhone + '</span></td></tr></table>' +
+        '<div style="margin:22px 0 25px;padding:18px 18px 18px 20px;border-left:4px solid #16a184;border-radius:4px 10px 10px 4px;background:#eff8f6;font-size:15px;line-height:1.65;color:#294c57">' + safeMessage + '</div><a href="mailto:' + safeEmail + '?subject=Re%3A%20' + encodeURIComponent(subject) + '" style="display:inline-block;padding:13px 20px;border-radius:8px;background:#117d70;color:#fff;text-decoration:none;font-size:14px;font-weight:700">Reply to enquiry</a></td></tr>' +
+        '<tr><td style="padding:18px 30px;background:#f7faf9;border-top:1px solid #dce9e8;font-size:11px;line-height:1.6;color:#71868c">Simplicon Tax Advisors · Website enquiry<br><a href="' + siteUrl + '" style="color:#11786d;text-decoration:none">' + siteUrl.replace(/^https?:\/\//, '') + '</a></td></tr></table></td></tr></table></body></html>';      const text = 'New website enquiry\n\nFiling country: ' + subject + '\nName: ' + name + '\nEmail: ' + email + '\nPhone: ' + (phone || 'Not provided') + '\n\n' + message;
 
       await transporter.sendMail({
         from: '"Simplicon Tax Advisors" <' + smtpFrom + '>',
