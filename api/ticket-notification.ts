@@ -84,6 +84,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const smtpUser = process.env.SMTP_USER ?? 'info@simplicontax.com';
     const smtpPass = process.env.SMTP_PASS;
     const smtpFrom = process.env.SMTP_FROM ?? 'info@simplicontax.com';
+    const ticketReplyTo = process.env.TICKET_REPLY_TO ?? 'tickets@simplicontax.com';
     const portalUrl = process.env.PORTAL_URL ?? 'https://www.simplicontax.com';
     if (!supabaseUrl || !serviceRoleKey) throw new Error('Server-side Supabase credentials are not configured');
     if (!smtpPass) throw new Error('SMTP_PASS is not configured');
@@ -158,7 +159,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const attempts = Number(existing?.attempts ?? 0) + 1;
         const delivery = renderEmail(ticket as Ticket, event, caller as Profile, recipient, portalUrl);
         try {
-          await transporter.sendMail({ from: `"Simplicon Tax Advisors" <${smtpFrom}>`, replyTo: 'info@simplicontax.com', to: normalizedEmail, subject: delivery.subject, text: delivery.text, html: delivery.html });
+          await transporter.sendMail({ from: `"Simplicon Tax Advisors" <${smtpFrom}>`, replyTo: ticketReplyTo, to: normalizedEmail, subject: delivery.subject, text: delivery.text, html: delivery.html });
           if (queueAvailable) await adminClient.from('ticket_email_deliveries').upsert({ event_id: event.id, recipient_email: normalizedEmail, attempts, sent_at: new Date().toISOString(), last_error: null }, { onConflict: 'event_id,recipient_email' });
           sent += 1;
         } catch (sendError) {
