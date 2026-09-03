@@ -135,7 +135,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const requester = activeProfiles.find((p) => p.id === ticket.requester_id);
     const assigned = activeProfiles.find((p) => p.id === ticket.assigned_to);
     const administrator = activeProfiles.find((p) => p.role === 'admin' && p.email.toLowerCase() === 'info@simplicontax.com');
-    if (!requester || !administrator) throw new Error('Ticket recipients are not configured');
+    if (!administrator) throw new Error('The administrator notification address is not configured');
 
     const transporter = nodemailer.createTransport({ host: smtpHost, port: smtpPort, secure: smtpPort === 465, auth: { user: smtpUser, pass: smtpPass } });
     let sent = 0;
@@ -144,8 +144,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     for (const event of events) {
       const recipients = caller.role === 'client'
         ? [administrator, ...(assigned?.role === 'team' ? [assigned] : [])]
-        : [requester, ...(event.event_type === 'assignment_changed' && assigned?.role === 'team' ? [assigned] : [])];
-      const uniqueRecipients = [...new Map(recipients.filter((p) => p.id !== caller.id).map((p) => [p.email.toLowerCase(), p])).values()];
+        : [...(requester ? [requester] : []), ...(event.event_type === 'assignment_changed' && assigned?.role === 'team' ? [assigned] : [])];
+      if (event.event_type === 'ticket_created') recipients.push(administrator);
+      const uniqueRecipients = [...new Map(recipients
+        .filter((p) => p.id !== caller.id || (event.event_type === 'ticket_created' && p.id === administrator.id))
+        .map((p) => [p.email.toLowerCase(), p])).values()];
       let eventComplete = true;
       for (const recipient of uniqueRecipients) {
         const normalizedEmail = recipient.email.toLowerCase();

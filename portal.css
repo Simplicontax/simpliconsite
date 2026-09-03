@@ -78,7 +78,9 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .ticket-column, .ticket-panel { min-width: 0; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); box-shadow: 0 12px 34px rgba(16,42,67,.055); }
 .ticket-column { overflow: hidden; }
 .section-toolbar { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; padding: 1.3rem 1.3rem 1rem; border-bottom: 1px solid var(--line); }
-.section-toolbar h2 { margin: 0; font-family: "Manrope", sans-serif; font-size: 1.15rem; }
+.section-toolbar h2 { margin: 0; font-family: "Manrope", sans-serif; font-size: 1.15rem; font-weight: 700; }
+.ticket-add-button { display: inline-grid; width: 22px; height: 22px; margin-left: .28rem; padding: 0; place-items: center; border: 1px solid #b9d5cd; border-radius: 50%; color: #0e6861; background: #edf8f5; cursor: pointer; font-family: inherit; font-size: 1rem; font-weight: 700; line-height: 1; vertical-align: 2px; }
+.ticket-add-button:hover { border-color: #72b6a7; color: #fff; background: var(--teal); }
 .section-toolbar p { margin: .25rem 0 0; color: var(--muted); font-size: .7rem; }
 .ticket-filters { display: flex; gap: .2rem; padding: .2rem; border-radius: 10px; background: #f3f6f8; }
 .ticket-filters button { padding: .42rem .55rem; border: 0; border-radius: 8px; color: var(--muted); background: transparent; cursor: pointer; font-size: .68rem; font-weight: 700; }
@@ -169,6 +171,8 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: .55rem; }
 .dialog-actions button { padding: .7rem 1rem; border: 0; border-radius: 9px; color: #fff; background: var(--teal); cursor: pointer; font-size: .72rem; font-weight: 700; }
 .dialog-actions .secondary { border: 1px solid var(--line); color: var(--ink); background: #fff; }
+.manual-ticket-contact { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; padding: .85rem; border: 1px solid #cfe5df; border-radius: 10px; background: #f3faf8; }
+.manual-ticket-contact p { grid-column: 1 / -1; margin: -.15rem 0 0; color: #5a7480; font-size: .62rem; line-height: 1.45; }
 .toast { position: fixed; z-index: 30; right: 1.5rem; bottom: 1.5rem; max-width: 360px; padding: .9rem 1rem; border-radius: 12px; color: #fff; background: var(--navy); box-shadow: 0 14px 40px rgba(8,38,51,.25); opacity: 0; pointer-events: none; transform: translateY(12px); transition: 180ms ease; font-size: .72rem; }
 .toast.show { opacity: 1; transform: translateY(0); }
 .toast.error { background: var(--danger); }

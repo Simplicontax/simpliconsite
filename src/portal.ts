@@ -13,7 +13,7 @@ type Ticket = {
   activities:Activity[]; documents:TicketDocument[];
 };
 type DbProfile = { id:string; email:string; full_name:string; phone:string|null; job_title:string|null; role:Role; active:boolean; frozen_at?:string|null; removed_at?:string|null };
-type DbTicket = { id:string; ticket_number:string; requester_id:string; subject:string; description:string; country:string; tax_year:number; status:TicketStatus; priority:string; assigned_to:string|null; updated_at:string };
+type DbTicket = { id:string; ticket_number:string; requester_id:string; requester_email:string|null; requester_name:string|null; subject:string; description:string; country:string; tax_year:number; status:TicketStatus; priority:string; assigned_to:string|null; updated_at:string };
 type DbComment = { id:string; ticket_id:string; author_id:string; body:string; is_system:boolean; created_at:string };
 type DbDocument = { id:string; ticket_id:string; uploaded_by:string; storage_path:string; file_name:string; size_bytes:number; document_type:string|null; created_at:string };
 type TaxOrganizer = { storagePath:string; fileName:string; mimeType:string; sizeBytes:number; updatedAt:string };
@@ -40,6 +40,8 @@ let workspaceEntryInFlight = false;
 let currentOrganizer:TaxOrganizer|null = null;
 let accessCheckInFlight = false;
 const readNotificationIds = new Set<string>();
+let realtimeChannel: { unsubscribe: () => unknown }|null = null;
+let realtimeRefreshTimer:number|undefined;
 
 const el = <T extends HTMLElement>(id:string):T => {
   const node=document.getElementById(id);
@@ -95,6 +97,15 @@ async function syncTicketEmailReplies():Promise<void> {
     const result=await response.json() as {imported?:number};
     if(result.imported){await loadSupabaseData();showToast(String(result.imported)+' email '+(result.imported===1?'reply was':'replies were')+' added to ticket chat.');}
   }catch{ /* Keep workspace usable if GoDaddy is temporarily unavailable. */ }
+}
+function subscribeToTicketComments():void {
+  realtimeChannel?.unsubscribe();realtimeChannel=null;if(!supabase||!currentProfile)return;
+  realtimeChannel=supabase.channel('ticket-comments:'+currentProfile.id).on('postgres_changes',{event:'INSERT',schema:'public',table:'ticket_comments'},()=>{
+    if(realtimeRefreshTimer)window.clearTimeout(realtimeRefreshTimer);realtimeRefreshTimer=window.setTimeout(()=>void refreshTicketData(),120);
+  }).subscribe();
+}
+async function refreshTicketData():Promise<void> {
+  const previousTicketId=selectedTicketId;try{await loadSupabaseData();if(tickets.some((ticket)=>ticket.id===previousTicketId))selectedTicketId=previousTicketId;renderAll();}catch(error){console.error('Unable to refresh live ticket activity:',error);}
 }
 function setButtonLoading(button:HTMLButtonElement,busy:boolean,label='Working…'):void {
   if(busy){button.dataset.originalHtml=button.innerHTML;button.disabled=true;button.classList.add('is-loading');button.innerHTML=`<span class="round-spinner" aria-hidden="true"></span><span>${escapeHtml(label)}</span>`;return;}
@@ -161,7 +172,7 @@ async function enterAuthenticatedWorkspace(user:User):Promise<void> {
     const row=data as DbProfile;
     if(!row.active){showToast('This account is inactive. Contact the administrator.',true);await supabase.auth.signOut();return;}
     currentProfile={id:row.id,email:row.email,fullName:row.full_name,phone:row.phone??'',jobTitle:row.job_title??'',role:row.role,active:row.active,frozenAt:row.frozen_at,removedAt:row.removed_at};
-    await loadSupabaseData();await syncTicketEmailReplies();showWorkspace();
+    await loadSupabaseData();await syncTicketEmailReplies();subscribeToTicketComments();showWorkspace();
   }catch(error){finishBootstrap(true);showToast(error instanceof Error?error.message:'Unable to load your workspace.',true);}finally{workspaceEntryInFlight=false;}
 }
 
@@ -205,7 +216,7 @@ async function loadSupabaseData():Promise<void> {
   const comments=(commentRows??[]) as DbComment[];const documents=(documentRows??[]) as DbDocument[];
   tickets=rows.map((row)=>({
     id:row.id,number:row.ticket_number,title:row.subject,country:row.country,year:String(row.tax_year),status:row.status,priority:row.priority,requesterId:row.requester_id,
-    requesterName:profileMap.get(row.requester_id)?.fullName??'Client',assigneeId:row.assigned_to??'',assigneeName:row.assigned_to?profileMap.get(row.assigned_to)?.fullName??'Assigned specialist':'Admin queue',updated:formatTime(row.updated_at),description:row.description,
+    requesterName:row.requester_name??profileMap.get(row.requester_id)?.fullName??'Client',assigneeId:row.assigned_to??'',assigneeName:row.assigned_to?profileMap.get(row.assigned_to)?.fullName??'Assigned specialist':'Admin queue',updated:formatTime(row.updated_at),description:row.description,
     activities:comments.filter((comment)=>comment.ticket_id===row.id).map((comment)=>{const author=profileMap.get(comment.author_id);return{id:comment.id,author:comment.is_system?'Simplicon':author?.fullName??'User',authorInitials:comment.is_system?'S':initials(author?.fullName??'User'),text:comment.body,time:formatTime(comment.created_at),system:comment.is_system};}),
     documents:documents.filter((document)=>document.ticket_id===row.id).map((document)=>({id:document.id,name:document.file_name,size:formatBytes(document.size_bytes),type:document.document_type??'Client upload',uploadedBy:profileMap.get(document.uploaded_by)?.fullName??'User',uploadedById:document.uploaded_by,createdAt:formatTime(document.created_at),storagePath:document.storage_path})),
   }));
@@ -459,19 +470,27 @@ async function addComment(event:SubmitEvent):Promise<void> {
   }finally{setButtonLoading(button,false);}
 }
 
+function openNewTicketDialog(manual=false):void {
+  const dialog=el<HTMLDialogElement>('newTicketDialog');
+  el<HTMLElement>('newTicketKicker').textContent=manual?'Admin ticket':'New request';el<HTMLElement>('newTicketDialogTitle').textContent=manual?'Create a customer ticket':'Create a ticket';
+  el<HTMLFormElement>('newTicketForm').dataset.manual=String(manual);dialog.showModal();
+}
 async function createTicket(event:SubmitEvent):Promise<void> {
-  event.preventDefault();if(!currentProfile||currentProfile.role!=='client'){showToast('Only clients can create requests.',true);return;}
+  event.preventDefault();if(!currentProfile||!['client','admin'].includes(currentProfile.role)){showToast('You do not have permission to create tickets.',true);return;}
   if(!supabase){showToast('The secure workspace is unavailable.',true);return;}
+  const manual=el<HTMLFormElement>('newTicketForm').dataset.manual==='true';if(manual&&currentProfile.role!=='admin'){showToast('Only the administrator can create a customer ticket.',true);return;}
   const button=el<HTMLFormElement>('newTicketForm').querySelector<HTMLButtonElement>('button[type="submit"]')!;setButtonLoading(button,true,'Creating…');
   const subject=el<HTMLInputElement>('newTicketTitle').value.trim();const country=el<HTMLSelectElement>('newTicketCountry').value;const year=Number(el<HTMLSelectElement>('newTicketYear').value);const description=el<HTMLTextAreaElement>('newTicketDescription').value.trim();
+  const customerEmail=(manual?el<HTMLInputElement>('manualTicketEmail').value:currentProfile.email).trim().toLowerCase();const customerName=(manual?el<HTMLInputElement>('manualTicketName').value:currentProfile.fullName).trim();
+  if(!customerName||!customerEmail){showToast('Enter the customer name and email.',true);setButtonLoading(button,false);return;}
   try{
-    const {data,error}=await supabase.from('tickets').insert({requester_id:currentProfile.id,subject,country,tax_year:year,description,status:'new',priority:'Normal'}).select('id').single();
+    const existingCustomer=manual?profilesDirectory.find((profile)=>profile.role==='client'&&profile.email.toLowerCase()===customerEmail):undefined;
+    const {data,error}=await supabase.from('tickets').insert({requester_id:existingCustomer?.id??currentProfile.id,requester_email:customerEmail,requester_name:customerName,subject,country,tax_year:year,description,status:'new',priority:'Normal'}).select('id').single();
     if(error){showToast(error.message,true);return;}await loadSupabaseData();selectedTicketId=String(data.id);
     const notified=await notifyTicketParticipants(selectedTicketId);
-    el<HTMLDialogElement>('newTicketDialog').close();el<HTMLFormElement>('newTicketForm').reset();renderAll();showToast(notified?'Request created and routed to the administrator.':'Request created, but the email notification could not be sent.',!notified);
+    el<HTMLDialogElement>('newTicketDialog').close();el<HTMLFormElement>('newTicketForm').reset();renderAll();showToast(notified?(manual?'Customer ticket created and the administrator was notified.':'Request created and routed to the administrator.'):'Ticket created, but the email notification could not be sent.',!notified);
   }finally{setButtonLoading(button,false);}
 }
-
 async function inviteTeamMember(event:SubmitEvent):Promise<void> {
   event.preventDefault();if(currentProfile?.role!=='admin'){showToast('Only the administrator can add team members.',true);return;}
   if(!supabase){showToast('The secure workspace is unavailable.',true);return;}
@@ -507,7 +526,7 @@ function wireEvents():void {
   document.querySelectorAll<HTMLButtonElement>('[data-auth-mode]').forEach((button)=>button.addEventListener('click',()=>setAuthMode(button.dataset.authMode as 'signin'|'signup')));el<HTMLFormElement>('authForm').addEventListener('submit',(event)=>void authenticate(event));
   document.querySelectorAll<HTMLButtonElement>('[data-auth-provider]').forEach((button)=>button.addEventListener('click',()=>void authenticateWithProvider(button.dataset.authProvider as Provider,button)));
   el<HTMLButtonElement>('forgotPassword').addEventListener('click',async()=>{if(!supabase){showToast('The secure workspace is unavailable.',true);return;}const email=el<HTMLInputElement>('authEmail').value.trim();if(!email){showToast('Enter your email address first.',true);return;}const button=el<HTMLButtonElement>('forgotPassword');setButtonLoading(button,true,'Sending reset link…');try{const {error}=await supabase.auth.resetPasswordForEmail(email,{redirectTo:`${window.location.origin}/portal.html`});showToast(error?error.message:'Password reset email sent.',Boolean(error));}finally{setButtonLoading(button,false);}});
-  const signOut=async(button:HTMLButtonElement)=>{setButtonLoading(button,true,'Signing out…');try{if(!supabase)throw new Error('The secure workspace is unavailable.');const {error}=await supabase.auth.signOut();if(error)throw error;currentProfile=null;finishBootstrap(true);showToast('You have signed out securely.');}catch(error){showToast(error instanceof Error?error.message:'Unable to sign out.',true);}finally{setButtonLoading(button,false);}};
+  const signOut=async(button:HTMLButtonElement)=>{setButtonLoading(button,true,'Signing out…');try{if(!supabase)throw new Error('The secure workspace is unavailable.');const {error}=await supabase.auth.signOut();if(error)throw error;currentProfile=null;realtimeChannel?.unsubscribe();realtimeChannel=null;finishBootstrap(true);showToast('You have signed out securely.');}catch(error){showToast(error instanceof Error?error.message:'Unable to sign out.',true);}finally{setButtonLoading(button,false);}};
   ['signOutButton','sidebarSignOutButton'].forEach((id)=>el<HTMLButtonElement>(id).addEventListener('click',()=>void signOut(el<HTMLButtonElement>(id))));
   const accountMenuButton=el<HTMLButtonElement>('accountMenuButton');const accountMenu=el<HTMLElement>('accountMenu');accountMenuButton.addEventListener('click',(event)=>{event.stopPropagation();const hidden=accountMenu.classList.toggle('hidden');accountMenuButton.setAttribute('aria-expanded',String(!hidden));});accountMenu.addEventListener('click',(event)=>event.stopPropagation());document.addEventListener('click',closeAccountMenu);document.addEventListener('keydown',(event)=>{if(event.key==='Escape')closeAccountMenu();});
   document.querySelectorAll<HTMLButtonElement>('[data-view]').forEach((button)=>button.addEventListener('click',()=>switchView(button.dataset.view as WorkspaceView)));
@@ -516,7 +535,7 @@ function wireEvents():void {
   document.querySelectorAll<HTMLButtonElement>('[data-detail-tab]').forEach((button)=>button.addEventListener('click',()=>setDetailTab(button.dataset.detailTab as 'activity'|'documents')));
   el<HTMLButtonElement>('browseButton').addEventListener('click',()=>fileInput.click());fileInput.addEventListener('change',()=>void handleFiles(fileInput.files??[]));const zone=el<HTMLElement>('uploadZone');['dragenter','dragover'].forEach((name)=>zone.addEventListener(name,(event)=>{event.preventDefault();zone.classList.add('dragging');}));['dragleave','drop'].forEach((name)=>zone.addEventListener(name,(event)=>{event.preventDefault();zone.classList.remove('dragging');}));zone.addEventListener('drop',(event)=>void handleFiles((event as DragEvent).dataTransfer?.files??[]));
   el<HTMLButtonElement>('assignButton').addEventListener('click',()=>void assignTicket());el<HTMLButtonElement>('updateTicketButton').addEventListener('click',()=>void updateTicketWorkflow());el<HTMLFormElement>('commentForm').addEventListener('submit',(event)=>void addComment(event));
-  const newDialog=el<HTMLDialogElement>('newTicketDialog');el<HTMLButtonElement>('newTicketButton').addEventListener('click',()=>newDialog.showModal());el<HTMLFormElement>('newTicketForm').addEventListener('submit',(event)=>void createTicket(event));
+  el<HTMLButtonElement>('newTicketButton').addEventListener('click',()=>openNewTicketDialog());el<HTMLButtonElement>('newManualTicketButton').addEventListener('click',()=>openNewTicketDialog(true));el<HTMLFormElement>('newTicketForm').addEventListener('submit',(event)=>void createTicket(event));
   const teamDialog=el<HTMLDialogElement>('teamDialog');el<HTMLButtonElement>('inviteTeamButton').addEventListener('click',()=>teamDialog.showModal());el<HTMLFormElement>('teamInviteForm').addEventListener('submit',(event)=>void inviteTeamMember(event));
   const userActionDialog=el<HTMLDialogElement>('userActionDialog');el<HTMLButtonElement>('cancelUserAction').addEventListener('click',()=>{pendingUserAction=null;userActionDialog.close();});el<HTMLButtonElement>('confirmUserAction').addEventListener('click',()=>void manageTeamMember());
   const documentDeleteDialog=el<HTMLDialogElement>('documentDeleteDialog');el<HTMLButtonElement>('cancelDocumentDelete').addEventListener('click',()=>{pendingDeleteDocumentId='';documentDeleteDialog.close();});el<HTMLButtonElement>('confirmDocumentDelete').addEventListener('click',()=>void deleteDocument());
@@ -536,7 +555,7 @@ async function initialize():Promise<void> {
   supabase!.auth.onAuthStateChange((event,session)=>{
     if(event==='PASSWORD_RECOVERY'){finishBootstrap(true);window.setTimeout(()=>el<HTMLDialogElement>('resetPasswordDialog').showModal(),0);return;}
     if(event==='SIGNED_IN'&&session?.user&&!currentProfile){organizerGatePending=true;window.setTimeout(()=>void enterAuthenticatedWorkspace(session.user),0);}
-    if(event==='SIGNED_OUT'){currentProfile=null;finishBootstrap(true);}
+    if(event==='SIGNED_OUT'){currentProfile=null;realtimeChannel?.unsubscribe();realtimeChannel=null;finishBootstrap(true);}
   });
 }
 

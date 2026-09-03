@@ -135,7 +135,7 @@
             <section class="portal-content workspace-view" id="ticketsView">
                 <div class="ticket-column">
                     <div class="section-toolbar">
-                        <div><h2>Tickets</h2><p>Track filings, requests and document reviews.</p></div>
+                        <div><h2>Tickets <button class="ticket-add-button admin-only" id="newManualTicketButton" type="button" aria-label="Create a ticket for a customer" title="Create a ticket for a customer">+</button></h2><p>Track filings, requests and document reviews.</p></div>
                         <div class="ticket-filters">
                             <button class="active" data-filter="all">All <span>0</span></button>
                             <button data-filter="active">Active <span>0</span></button>
@@ -244,7 +244,7 @@
 
     <dialog class="ticket-dialog" id="newTicketDialog">
         <form method="dialog" id="newTicketForm">
-            <div class="dialog-heading"><div><span>New request</span><h2>Create a ticket</h2></div><button value="cancel" aria-label="Close">×</button></div>
+            <div class="dialog-heading"><div><span id="newTicketKicker">New request</span><h2 id="newTicketDialogTitle">Create a ticket</h2></div><button value="cancel" aria-label="Close">×</button></div><div class="manual-ticket-contact admin-only" id="manualTicketContact"><label>Customer name<input id="manualTicketName" placeholder="Customer name"></label><label>Customer email<input id="manualTicketEmail" type="email" placeholder="customer@example.com"></label><p>The ticket will automatically appear in the customer account when they register with this email.</p></div>
             <label>What do you need help with?<input id="newTicketTitle" required placeholder="e.g. 2025 individual tax return"></label>
             <div class="dialog-grid">
                 <label>Filing country<select id="newTicketCountry" required><option>United States</option><option>United Kingdom</option><option>Canada</option><option>India</option></select></label>
