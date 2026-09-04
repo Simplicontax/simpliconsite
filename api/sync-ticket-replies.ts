@@ -17,6 +17,17 @@ function missingMessageIdColumn(error: { code?: string; message?: string } | nul
   return Boolean(error && (error.code === 'PGRST204' || error.code === '42703' || /email_message_id/i.test(error.message ?? '')));
 }
 
+async function resolveReplyMailbox(client: ImapFlow): Promise<string> {
+  const configured = (process.env.TICKET_REPLY_IMAP_FOLDER ?? 'Ticket Replies').trim();
+  const expected = configured.toLowerCase();
+  const mailboxes = await client.list();
+  const match = mailboxes.find((mailbox) => mailbox.path.toLowerCase() === expected)
+    ?? mailboxes.find((mailbox) => mailbox.name.toLowerCase() === expected)
+    ?? mailboxes.find((mailbox) => mailbox.path.toLowerCase().endsWith(mailbox.delimiter + expected));
+  if (!match) throw new Error(`IMAP folder "${configured}" was not found`);
+  return match.path;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   const supabaseUrl = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
@@ -38,10 +49,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const client = new ImapFlow({ host: process.env.IMAP_HOST ?? defaultImapHost, port: Number(process.env.IMAP_PORT ?? '993'), secure: true, auth: { user: imapUser, pass: imapPass } });
   let imported = 0;
   let scanned = 0;
+  let replyMailbox = '';
   const skipped = { missingEnvelope: 0, missingMetadata: 0, noTicket: 0, noProfile: 0, notParticipant: 0, emptyBody: 0, duplicate: 0 };
   try {
     await client.connect();
-    const lock = await client.getMailboxLock(process.env.TICKET_REPLY_IMAP_FOLDER ?? 'Ticket Replies');
+    replyMailbox = await resolveReplyMailbox(client);
+    const lock = await client.getMailboxLock(replyMailbox);
     try {
       for await (const message of client.fetch({ or: [{ seen: false }, { since: new Date(Date.now() - 86400000) }] }, { uid: true, envelope: true, source: true })) {
         scanned += 1;
@@ -86,6 +99,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.error('Ticket email reply sync failed', error instanceof Error ? error.message : error);
     return res.status(500).json({ error: 'Could not sync ticket replies' });
   } finally { await client.logout().catch((): void => undefined); }
-  console.info('Ticket reply sync completed', { scanned, imported, skipped });
-  return res.status(200).json({ imported, scanned, skipped });
+  console.info('Ticket reply sync completed', { mailbox: replyMailbox, scanned, imported, skipped });
+  return res.status(200).json({ mailbox: replyMailbox, imported, scanned, skipped });
 }
