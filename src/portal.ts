@@ -126,40 +126,44 @@ async function syncTicketEmailReplies(announce=false):Promise<boolean> {
     const controller=new AbortController();
     const timeoutId=window.setTimeout(()=>controller.abort(),12000);
     let response:Response;
-    try{
-      response=await fetch('/api/sync-ticket-replies',{method:'POST',cache:'no-store',headers:{Authorization:'Bearer '+session.access_token},signal:controller.signal});
-    }catch(fetchError){
-      el<HTMLElement>('replySyncStatus').textContent=fetchError instanceof Error&&fetchError.name==='AbortError'?'Mailbox check timed out (IMAP slow to respond). Will retry…':`Sync error: ${fetchError instanceof Error?fetchError.message:'Network error'}`;
-      return false;
-    }finally{window.clearTimeout(timeoutId);}
-    if(!response.ok){
-      const errText=await response.text();
-      console.error('Ticket reply sync failed:',response.status,errText);
-      el<HTMLElement>('replySyncStatus').textContent=`Mailbox sync failed (${response.status}) — ${errText.slice(0,120)}`;
-      return false;
-    }
-    const result=await response.json() as {mailbox?:string;imported?:number;scanned?:number;skipped?:Record<string,number>};
-    const signature=JSON.stringify(result);if(signature!==lastTicketReplySyncSignature){console.log('Ticket reply sync result:',result);lastTicketReplySyncSignature=signature;}
-    const skip=result.skipped??{};
-    const skipParts=Object.entries(skip).filter(([,n])=>n>0).map(([k,n])=>`${k}:${n}`).join(', ');
-    const ts=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-    el<HTMLElement>('replySyncStatus').textContent=
-      `📬 ${result.mailbox??'?'} · scanned ${result.scanned??0} · imported ${result.imported??0}`+
-      (skipParts?` · skipped (${skipParts})`:``) +
-      ` · ${ts}`;
-    if(result.imported){await refreshTicketData();if(announce)showToast(String(result.imported)+' email '+(result.imported===1?'reply was':'replies were')+' added to ticket chat.');}
-    return true;
-  }catch(error){console.error('Ticket reply sync failed:',error);el<HTMLElement>('replySyncStatus').textContent=`Sync error: ${error instanceof Error?error.message:'Unknown'}`;return false;}
-  finally{ticketReplySyncInFlight=false;}
-}
-function startTicketReplySync():void {
-  stopTicketReplySync();
-  const bar=document.getElementById('replySyncBar');
-  if(currentProfile?.role==='admin'&&bar){
-    bar.classList.remove('hidden');
-    el<HTMLElement>('replySyncStatus').textContent='📨 Email webhook active · replies appear automatically';
+      try{
+        response=await fetch(import.meta.env.VITE_SUPABASE_URL+'/functions/v1/sync-ticket-replies',{method:'POST',cache:'no-store',headers:{Authorization:'Bearer '+session.access_token},signal:controller.signal});
+      }catch(fetchError){
+        el<HTMLElement>('replySyncStatus').textContent=fetchError instanceof Error&&fetchError.name==='AbortError'?'Mailbox check timed out (IMAP slow to respond). Will retry…':`Sync error: ${fetchError instanceof Error?fetchError.message:'Network error'}`;
+        return false;
+      }finally{window.clearTimeout(timeoutId);}
+      if(!response.ok){
+        const errText=await response.text();
+        console.error('Ticket reply sync failed:',response.status,errText);
+        el<HTMLElement>('replySyncStatus').textContent=`Mailbox sync failed (${response.status}) — ${errText.slice(0,120)}`;
+        return false;
+      }
+      const result=await response.json() as {mailbox?:string;imported?:number;scanned?:number;skipped?:Record<string,number>};
+      const signature=JSON.stringify(result);if(signature!==lastTicketReplySyncSignature){console.log('Ticket reply sync result:',result);lastTicketReplySyncSignature=signature;}
+      const skip=result.skipped??{};
+      const skipParts=Object.entries(skip).filter(([,n])=>n>0).map(([k,n])=>`${k}:${n}`).join(', ');
+      const ts=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+      el<HTMLElement>('replySyncStatus').textContent=
+        `📬 ${result.mailbox??'?'} · scanned ${result.scanned??0} · imported ${result.imported??0}`+
+        (skipParts?` · skipped (${skipParts})`:``) +
+        ` · ${ts}`;
+      if(result.imported){await refreshTicketData();if(announce)showToast(String(result.imported)+' email '+(result.imported===1?'reply was':'replies were')+' added to ticket chat.');}
+      return true;
+    }catch(error){console.error('Ticket reply sync failed:',error);el<HTMLElement>('replySyncStatus').textContent=`Sync error: ${error instanceof Error?error.message:'Unknown'}`;return false;}
+    finally{ticketReplySyncInFlight=false;}
   }
-}
+  function startTicketReplySync():void {
+    stopTicketReplySync();
+    const bar=document.getElementById('replySyncBar');
+    if(currentProfile?.role==='admin'&&bar)bar.classList.remove('hidden');
+    const run=()=>{
+      if(currentProfile?.role!=='admin'||document.visibilityState!=='visible')return;
+      void syncTicketEmailReplies(false);
+    };
+    console.warn('Ticket reply polling started:',{role:currentProfile?.role??'none',intervalMs:15000});
+    run();
+    ticketReplySyncTimer=window.setInterval(run,15000);
+  }
 
 function stopTicketReplySync():void { if(ticketReplySyncTimer)window.clearInterval(ticketReplySyncTimer);ticketReplySyncTimer=undefined; }
 function subscribeToTicketComments():void {
