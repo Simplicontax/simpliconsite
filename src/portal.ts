@@ -121,8 +121,8 @@ async function syncTicketEmailReplies(announce=false):Promise<boolean> {
   if(!supabase||currentProfile?.role!=='admin'||ticketReplySyncInFlight)return false;
   ticketReplySyncInFlight=true;
   try{
-    const {data:{session}}=await supabase.auth.getSession();if(!session)return false;
-    const response=await fetch('/api/sync-ticket-replies',{method:'POST',headers:{Authorization:'Bearer '+session.access_token}});
+    const {data:{session}}=await supabase.auth.getSession();if(!session){console.warn('Ticket reply sync paused: no active Supabase session.');return false;}
+    const response=await fetch('/api/sync-ticket-replies',{method:'POST',cache:'no-store',headers:{Authorization:'Bearer '+session.access_token}});
     if(!response.ok){console.error('Ticket reply sync failed:',response.status,await response.text());return false;}
     const result=await response.json() as {mailbox?:string;imported?:number;scanned?:number;skipped?:Record<string,number>};
     const signature=JSON.stringify(result);if(signature!==lastTicketReplySyncSignature){console.log('Ticket reply sync result:',result);lastTicketReplySyncSignature=signature;}
@@ -137,7 +137,7 @@ function startTicketReplySync():void {
     if(currentProfile?.role!=='admin'||document.visibilityState!=='visible')return;
     void syncTicketEmailReplies(false);
   };
-  console.log('Ticket reply polling started:',{role:currentProfile?.role??'none',intervalMs:2000});
+  console.warn('Ticket reply polling started:',{role:currentProfile?.role??'none',intervalMs:2000});
   run();
   ticketReplySyncTimer=window.setInterval(run,2000);
 }
@@ -595,7 +595,7 @@ function wireEvents():void {
 }
 
 async function initialize():Promise<void> {
-  wireEvents();updateLocalGreeting();window.setInterval(updateLocalGreeting,60000);window.setInterval(()=>void verifyCurrentAccess(),60000);window.addEventListener('focus',()=>{void verifyCurrentAccess();void syncTicketEmailReplies(false);});document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')void syncTicketEmailReplies(false);});const requestedMode=new URLSearchParams(window.location.search).get('mode');setAuthMode(requestedMode==='signup'?'signup':'signin');
+  wireEvents();startTicketReplySync();updateLocalGreeting();window.setInterval(updateLocalGreeting,60000);window.setInterval(()=>void verifyCurrentAccess(),60000);window.addEventListener('focus',()=>{void verifyCurrentAccess();void syncTicketEmailReplies(false);});window.addEventListener('pageshow',()=>startTicketReplySync());document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')void syncTicketEmailReplies(false);});const requestedMode=new URLSearchParams(window.location.search).get('mode');setAuthMode(requestedMode==='signup'?'signup':'signin');
   if(!isSupabaseConfigured){el<HTMLElement>('authConfig').classList.remove('hidden');finishBootstrap(true);return;}
   try{const {data,error}=await supabase!.auth.getSession();if(error)throw error;if(data.session?.user){if(restoreWorkspaceCache(data.session.user)){showWorkspace();subscribeToTicketComments();startTicketReplySync();}await enterAuthenticatedWorkspace(data.session.user);}else finishBootstrap(true);}catch(error){finishBootstrap(true);showToast(error instanceof Error?error.message:'Unable to restore your session.',true);}
   supabase!.auth.onAuthStateChange((event,session)=>{
@@ -605,4 +605,5 @@ async function initialize():Promise<void> {
   });
 }
 
-document.addEventListener('DOMContentLoaded',()=>{void initialize();});
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{void initialize();},{once:true});
+else void initialize();
