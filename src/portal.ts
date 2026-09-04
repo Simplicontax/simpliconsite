@@ -123,13 +123,22 @@ async function syncTicketEmailReplies(announce=false):Promise<boolean> {
   try{
     const {data:{session}}=await supabase.auth.getSession();
     if(!session){el<HTMLElement>('replySyncStatus').textContent='Sync paused: session expired. Please sign in again.';return false;}
-    const {data,error}=await supabase.functions.invoke('sync-ticket-replies',{method:'POST'});
-      if(error){
-        console.error('Ticket reply sync failed:',error);
-        el<HTMLElement>('replySyncStatus').textContent='Mailbox sync failed — '+error.message;
-        return false;
-      }
-      const result=data as {mailbox?:string;imported?:number;scanned?:number;skipped?:Record<string,number>};
+    const controller=new AbortController();
+    const timeoutId=window.setTimeout(()=>controller.abort(),30000);
+    let response:Response;
+    try{
+      response=await fetch('/api/sync-ticket-replies',{method:'POST',cache:'no-store',headers:{Authorization:'Bearer '+session.access_token},signal:controller.signal});
+    }catch(fetchError){
+      el<HTMLElement>('replySyncStatus').textContent=fetchError instanceof Error&&fetchError.name==='AbortError'?'Mailbox check is taking longer than expected. Retrying…':'Sync error: '+(fetchError instanceof Error?fetchError.message:'Network error');
+      return false;
+    }finally{window.clearTimeout(timeoutId);}
+    if(!response.ok){
+      const errText=await response.text();
+      console.error('Ticket reply sync failed:',response.status,errText);
+      el<HTMLElement>('replySyncStatus').textContent='Mailbox sync failed ('+response.status+') — '+errText.slice(0,120);
+      return false;
+    }
+    const result=await response.json() as {mailbox?:string;imported?:number;scanned?:number;skipped?:Record<string,number>};
       const signature=JSON.stringify(result);if(signature!==lastTicketReplySyncSignature){console.log('Ticket reply sync result:',result);lastTicketReplySyncSignature=signature;}
       const skip=result.skipped??{};
       const skipParts=Object.entries(skip).filter(([,n])=>n>0).map(([k,n])=>`${k}:${n}`).join(', ');
