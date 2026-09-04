@@ -78,7 +78,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const candidateUids = unreadUids.slice(0, 1);
       remaining = Math.max(0, unreadUids.length - candidateUids.length);
       if (candidateUids.length) {
-        for await (const message of client.fetch(candidateUids, { uid: true, envelope: true, source: true }, { uid: true })) {
+        for await (const message of client.fetch(candidateUids, { uid: true, envelope: true, source: { start: 0, maxLength: 262144 } }, { uid: true })) {
           scanned += 1;
           const envelope = message.envelope;
           if (!envelope) {
