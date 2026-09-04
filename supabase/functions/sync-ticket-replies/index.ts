@@ -1,6 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { ImapFlow } from 'npm:imapflow';
-import { simpleParser } from 'npm:mailparser';
 import { createHash } from 'node:crypto';
 
 const corsHeaders = {
@@ -9,6 +8,56 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-retry-count, traceparent, tracestate, baggage',
   'Access-Control-Max-Age': '86400',
 };
+
+function decodeMimeText(value: string, encoding: string): string {
+  const normalizedEncoding = encoding.toLowerCase();
+  if (normalizedEncoding.includes('base64')) {
+    try {
+      const binary = atob(value.replace(/\s/g, ''));
+      return new TextDecoder().decode(Uint8Array.from(binary, (character) => character.charCodeAt(0)));
+    } catch { return value; }
+  }
+  if (normalizedEncoding.includes('quoted-printable')) {
+    const compact = value.replace(/=\r?\n/g, '');
+    const bytes: number[] = [];
+    for (let index = 0; index < compact.length; index += 1) {
+      if (compact[index] === '=' && /^[0-9a-f]{2}$/i.test(compact.slice(index + 1, index + 3))) {
+        bytes.push(Number.parseInt(compact.slice(index + 1, index + 3), 16));
+        index += 2;
+      } else {
+        bytes.push(compact.charCodeAt(index));
+      }
+    }
+    return new TextDecoder().decode(new Uint8Array(bytes));
+  }
+  return value;
+}
+
+function emailText(source: Uint8Array | string): string {
+  const raw = typeof source === 'string' ? source : new TextDecoder().decode(source);
+  const separator = raw.match(/\r?\n\r?\n/);
+  if (!separator || separator.index === undefined) return raw;
+  const headers = raw.slice(0, separator.index);
+  const body = raw.slice(separator.index + separator[0].length);
+  const boundaryMatch = headers.match(/boundary\s*=\s*(?:"([^"]+)"|([^\s;]+))/i);
+  const boundary = boundaryMatch?.[1] ?? boundaryMatch?.[2];
+  const parts = boundary ? body.split(new RegExp(`--${boundary.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:--)?\\r?\\n`, 'i')) : [body];
+  let selected = parts.find((part) => /^content-type:\s*text\/plain\b/im.test(part))
+    ?? parts.find((part) => /^content-type:\s*text\/html\b/im.test(part))
+    ?? body;
+  const partSeparator = selected.match(/\r?\n\r?\n/);
+  const partHeaders = partSeparator?.index === undefined ? headers : selected.slice(0, partSeparator.index);
+  if (partSeparator?.index !== undefined) selected = selected.slice(partSeparator.index + partSeparator[0].length);
+  const encoding = partHeaders.match(/^content-transfer-encoding:\s*([^\r\n]+)/im)?.[1] ?? '';
+  const decoded = decodeMimeText(selected.trim(), encoding);
+  const isHtml = /^content-type:\s*text\/html\b/im.test(partHeaders);
+  return isHtml ? decoded.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/gi, ' ') : decoded;
+}
+
+function emailMessageId(source: Uint8Array | string): string | undefined {
+  const raw = typeof source === 'string' ? source : new TextDecoder().decode(source);
+  return raw.match(/^message-id:\s*<?([^>\r\n]+)>?/im)?.[1]?.trim().toLowerCase();
+}
 
 function replyText(value: string): string {
   const normalized = value.replace(/\r/g, '').replace(/\u00a0/g, ' ');
@@ -111,11 +160,10 @@ Deno.serve(async (req: Request) => {
         if (profile && profile.role !== 'admin' && ticket.requester_id !== profile.id && ticket.assigned_to !== profile.id) { skipped.notParticipant += 1; continue; }
         const authorId = profile ? profile.id : ticket.requester_id;
         
-        const parsed = await simpleParser(message.source);
-        const body = replyText(parsed.text ?? '');
+        const body = replyText(emailText(message.source));
         if (!body) { skipped.emptyBody += 1; await client.messageFlagsAdd(message.uid, ['\\Seen'], { uid: true }); continue; }
         
-        const sourceMessageId = parsed.messageId?.trim().toLowerCase() || `imap:${message.uid}`;
+        const sourceMessageId = emailMessageId(message.source) ?? `imap:${message.uid}`;
         const commentId = emailCommentId(sourceMessageId);
         
         let { error } = await admin.from('ticket_comments').insert({ id: commentId, ticket_id: ticket.id, author_id: authorId, body, is_system: false, email_message_id: sourceMessageId });
