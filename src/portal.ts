@@ -123,16 +123,30 @@ async function syncTicketEmailReplies(announce=false):Promise<boolean> {
   try{
     const {data:{session}}=await supabase.auth.getSession();if(!session){console.warn('Ticket reply sync paused: no active Supabase session.');return false;}
     const response=await fetch('/api/sync-ticket-replies',{method:'POST',cache:'no-store',headers:{Authorization:'Bearer '+session.access_token}});
-    if(!response.ok){console.error('Ticket reply sync failed:',response.status,await response.text());return false;}
+    if(!response.ok){
+      const errText=await response.text();
+      console.error('Ticket reply sync failed:',response.status,errText);
+      el<HTMLElement>('replySyncStatus').textContent=`Mailbox sync failed (${response.status}) — ${errText.slice(0,120)}`;
+      return false;
+    }
     const result=await response.json() as {mailbox?:string;imported?:number;scanned?:number;skipped?:Record<string,number>};
     const signature=JSON.stringify(result);if(signature!==lastTicketReplySyncSignature){console.log('Ticket reply sync result:',result);lastTicketReplySyncSignature=signature;}
+    const skip=result.skipped??{};
+    const skipParts=Object.entries(skip).filter(([,n])=>n>0).map(([k,n])=>`${k}:${n}`).join(', ');
+    const ts=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    el<HTMLElement>('replySyncStatus').textContent=
+      `📬 ${result.mailbox??'?'} · scanned ${result.scanned??0} · imported ${result.imported??0}`+
+      (skipParts?` · skipped (${skipParts})`:``) +
+      ` · ${ts}`;
     if(result.imported){await refreshTicketData();if(announce)showToast(String(result.imported)+' email '+(result.imported===1?'reply was':'replies were')+' added to ticket chat.');}
     return true;
-  }catch(error){console.error('Ticket reply sync failed:',error);return false;}
+  }catch(error){console.error('Ticket reply sync failed:',error);el<HTMLElement>('replySyncStatus').textContent=`Sync error: ${error instanceof Error?error.message:'Unknown'}`;return false;}
   finally{ticketReplySyncInFlight=false;}
 }
 function startTicketReplySync():void {
   stopTicketReplySync();
+  const bar=document.getElementById('replySyncBar');
+  if(currentProfile?.role==='admin'&&bar)bar.classList.remove('hidden');
   const run=()=>{
     if(currentProfile?.role!=='admin'||document.visibilityState!=='visible')return;
     void syncTicketEmailReplies(false);
@@ -141,6 +155,7 @@ function startTicketReplySync():void {
   run();
   ticketReplySyncTimer=window.setInterval(run,2000);
 }
+
 function stopTicketReplySync():void { if(ticketReplySyncTimer)window.clearInterval(ticketReplySyncTimer);ticketReplySyncTimer=undefined; }
 function subscribeToTicketComments():void {
   realtimeChannel?.unsubscribe();realtimeChannel=null;if(!supabase||!currentProfile)return;
@@ -592,6 +607,7 @@ function wireEvents():void {
   const organizerFileInput=el<HTMLInputElement>('organizerFileInput');el<HTMLButtonElement>('replaceOrganizerButton').addEventListener('click',()=>organizerFileInput.click());organizerFileInput.addEventListener('change',()=>{const file=organizerFileInput.files?.[0];if(file)void replaceTaxOrganizer(file);});
   const organizerGate=el<HTMLDialogElement>('organizerGateDialog');organizerGate.addEventListener('cancel',(event)=>event.preventDefault());el<HTMLButtonElement>('continueToWorkspaceButton').addEventListener('click',()=>organizerGate.close());el<HTMLButtonElement>('gateDownloadOrganizer').addEventListener('click',()=>{el<HTMLButtonElement>('continueToWorkspaceButton').innerHTML='Continue to workspace <span>→</span>';});
   el<HTMLFormElement>('resetPasswordForm').addEventListener('submit',(event)=>void updatePassword(event));el<HTMLButtonElement>('mobileMenu').addEventListener('click',()=>el<HTMLElement>('portalSidebar').classList.toggle('open'));
+  el<HTMLButtonElement>('replySyncNow').addEventListener('click',()=>void syncTicketEmailReplies(true));
 }
 
 async function initialize():Promise<void> {
