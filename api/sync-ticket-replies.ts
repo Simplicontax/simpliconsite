@@ -4,6 +4,8 @@ import { simpleParser } from 'mailparser';
 import { createClient } from '@supabase/supabase-js';
 import { createHash } from 'node:crypto';
 
+export const config = { maxDuration: 60 };
+
 function replyText(value: string): string {
   const normalized = value.replace(/\r/g, '').replace(/\u00a0/g, ' ');
   const reply = normalized
@@ -56,8 +58,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     port: Number(process.env.IMAP_PORT ?? '993'),
     secure: true,
     auth: { user: imapUser, pass: imapPass },
-    connectionTimeout: 8000,
-    socketTimeout: 10000,
+    connectionTimeout: 15000,
+    socketTimeout: 30000,
     logger: false,
   });
   let imported = 0;
