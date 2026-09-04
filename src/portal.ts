@@ -155,14 +155,10 @@ async function syncTicketEmailReplies(announce=false):Promise<boolean> {
 function startTicketReplySync():void {
   stopTicketReplySync();
   const bar=document.getElementById('replySyncBar');
-  if(currentProfile?.role==='admin'&&bar)bar.classList.remove('hidden');
-  const run=()=>{
-    if(currentProfile?.role!=='admin'||document.visibilityState!=='visible')return;
-    void syncTicketEmailReplies(false);
-  };
-  console.warn('Ticket reply polling started:',{role:currentProfile?.role??'none',intervalMs:15000});
-  run();
-  ticketReplySyncTimer=window.setInterval(run,15000);
+  if(currentProfile?.role==='admin'&&bar){
+    bar.classList.remove('hidden');
+    el<HTMLElement>('replySyncStatus').textContent='📨 Email webhook active · replies appear automatically';
+  }
 }
 
 function stopTicketReplySync():void { if(ticketReplySyncTimer)window.clearInterval(ticketReplySyncTimer);ticketReplySyncTimer=undefined; }
