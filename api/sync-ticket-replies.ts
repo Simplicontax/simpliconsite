@@ -99,8 +99,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     } finally { lock.release(); }
   } catch (error) {
-    console.error('Ticket email reply sync failed', error instanceof Error ? error.message : error);
-    return res.status(500).json({ error: 'Could not sync ticket replies' });
+    const message = error instanceof Error ? error.message : String(error);
+    const isFolderMissing = /IMAP folder .* was not found/i.test(message);
+    console.error('Ticket email reply sync failed', message);
+    if (isFolderMissing) return res.status(503).json({ error: message, hint: 'Create the folder in GoDaddy Webmail and add a filter rule to move ticket replies into it.' });
+    return res.status(500).json({ error: 'Could not sync ticket replies', detail: message });
   } finally { await client.logout().catch((): void => undefined); }
   console.info('Ticket reply sync completed', { mailbox: replyMailbox, scanned, imported, skipped });
   return res.status(200).json({ mailbox: replyMailbox, imported, scanned, skipped });
