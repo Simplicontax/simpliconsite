@@ -52,7 +52,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const smtpHost = process.env.SMTP_HOST?.toLowerCase() ?? '';
   const defaultImapHost = smtpHost.includes('titan') ? 'imap.titan.email' : 'imap.secureserver.net';
-  const client = new ImapFlow({ host: process.env.IMAP_HOST ?? defaultImapHost, port: Number(process.env.IMAP_PORT ?? '993'), secure: true, auth: { user: imapUser, pass: imapPass } });
+  const client = new ImapFlow({ host: process.env.IMAP_HOST ?? defaultImapHost, port: Number(process.env.IMAP_PORT ?? '993'), secure: true, auth: { user: imapUser, pass: imapPass }, connectionTimeout: 8000, socketTimeout: 10000, logger: false });
   let imported = 0;
   let scanned = 0;
   let replyMailbox = '';

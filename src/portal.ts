@@ -121,8 +121,17 @@ async function syncTicketEmailReplies(announce=false):Promise<boolean> {
   if(!supabase||currentProfile?.role!=='admin'||ticketReplySyncInFlight)return false;
   ticketReplySyncInFlight=true;
   try{
-    const {data:{session}}=await supabase.auth.getSession();if(!session){console.warn('Ticket reply sync paused: no active Supabase session.');return false;}
-    const response=await fetch('/api/sync-ticket-replies',{method:'POST',cache:'no-store',headers:{Authorization:'Bearer '+session.access_token}});
+    const {data:{session}}=await supabase.auth.getSession();
+    if(!session){el<HTMLElement>('replySyncStatus').textContent='Sync paused: session expired. Please sign in again.';return false;}
+    const controller=new AbortController();
+    const timeoutId=window.setTimeout(()=>controller.abort(),12000);
+    let response:Response;
+    try{
+      response=await fetch('/api/sync-ticket-replies',{method:'POST',cache:'no-store',headers:{Authorization:'Bearer '+session.access_token},signal:controller.signal});
+    }catch(fetchError){
+      el<HTMLElement>('replySyncStatus').textContent=fetchError instanceof Error&&fetchError.name==='AbortError'?'Mailbox check timed out (IMAP slow to respond). Will retry…':`Sync error: ${fetchError instanceof Error?fetchError.message:'Network error'}`;
+      return false;
+    }finally{window.clearTimeout(timeoutId);}
     if(!response.ok){
       const errText=await response.text();
       console.error('Ticket reply sync failed:',response.status,errText);
