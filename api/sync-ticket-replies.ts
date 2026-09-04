@@ -4,7 +4,13 @@ import { simpleParser } from 'mailparser';
 import { createClient } from '@supabase/supabase-js';
 
 function replyText(value: string): string {
-  return value.replace(/\r/g, '').split(/\nOn .+wrote:\n/i)[0].split(/\nFrom:.+\nSent:.+\n/i)[0].trim().slice(0, 5000);
+  const normalized = value.replace(/\r/g, '').replace(/\u00a0/g, ' ');
+  const reply = normalized
+    .split(/(?:\s|^)On\s+[^\n]*\s+wrote:\s*/i)[0]
+    .split(/\n[-_]{2,}\s*Original Message\s*[-_]{2,}/i)[0]
+    .split(/\nFrom:\s*.+\nSent:\s*.+/i)[0]
+    .replace(/^\s*>.*$/gm, '');
+  return reply.replace(/\n{3,}/g, '\n\n').trim().slice(0, 5000);
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -40,10 +46,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const parsed = await simpleParser(message.source);
         const body = replyText(parsed.text ?? '');
         if (!body) { await client.messageFlagsAdd(message.uid, ['\\Seen']); continue; }
-        const { error } = await admin.from('ticket_comments').insert({ ticket_id: ticket.id, author_id: profile.id, body, is_system: false });
-        if (error) throw error;
+        const sourceMessageId = parsed.messageId?.trim().toLowerCase() || `imap:${message.uid}`;
+        const { error } = await admin.from('ticket_comments').insert({ ticket_id: ticket.id, author_id: profile.id, body, is_system: false, email_message_id: sourceMessageId });
+        if (error && error.code !== '23505') throw error;
         await client.messageFlagsAdd(message.uid, ['\\Seen']);
-        imported += 1;
+        if (!error) imported += 1;
       }
     } finally { lock.release(); }
   } catch (error) {
