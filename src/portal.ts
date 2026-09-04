@@ -132,11 +132,16 @@ async function syncTicketEmailReplies(announce=false):Promise<boolean> {
   finally{ticketReplySyncInFlight=false;}
 }
 function startTicketReplySync():void {
-  stopTicketReplySync();if(currentProfile?.role!=='admin')return;
-  const run=async()=>{if(currentProfile?.role!=='admin')return;if(document.visibilityState!=='visible'){ticketReplySyncTimer=window.setTimeout(()=>void run(),5000);return;}const healthy=await syncTicketEmailReplies(false);ticketReplySyncTimer=window.setTimeout(()=>void run(),healthy?2000:10000);};
-  void run();
+  stopTicketReplySync();
+  const run=()=>{
+    if(currentProfile?.role!=='admin'||document.visibilityState!=='visible')return;
+    void syncTicketEmailReplies(false);
+  };
+  console.log('Ticket reply polling started:',{role:currentProfile?.role??'none',intervalMs:2000});
+  run();
+  ticketReplySyncTimer=window.setInterval(run,2000);
 }
-function stopTicketReplySync():void { if(ticketReplySyncTimer)window.clearTimeout(ticketReplySyncTimer);ticketReplySyncTimer=undefined; }
+function stopTicketReplySync():void { if(ticketReplySyncTimer)window.clearInterval(ticketReplySyncTimer);ticketReplySyncTimer=undefined; }
 function subscribeToTicketComments():void {
   realtimeChannel?.unsubscribe();realtimeChannel=null;if(!supabase||!currentProfile)return;
   realtimeChannel=supabase.channel('ticket-comments:'+currentProfile.id).on('postgres_changes',{event:'INSERT',schema:'public',table:'ticket_comments'},()=>{
