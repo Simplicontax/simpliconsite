@@ -76,59 +76,71 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const candidateUids = unreadUids.slice(0, 1);
       remaining = Math.max(0, unreadUids.length - candidateUids.length);
       if (candidateUids.length) {
-        for await (const message of client.fetch(candidateUids, { uid: true, envelope: true, source: { start: 0, maxLength: 262144 } }, { uid: true })) {
+        // fetchOne completes its IMAP command before we run database or flag commands.
+        // Running messageFlagsAdd inside a streaming fetch iterator deadlocks ImapFlow.
+        const message = await client.fetchOne(String(candidateUids[0]), {
+          uid: true,
+          envelope: true,
+          source: { start: 0, maxLength: 262144 },
+        }, { uid: true });
+        if (!message) {
+          skipped.missingEnvelope += 1;
+        } else {
           scanned += 1;
           const envelope = message.envelope;
+          const ticketNumber = (envelope?.subject ?? '').match(/\b[A-Z]{2,}-\d+\b/i)?.[0];
+          const sender = envelope?.from?.[0]?.address?.toLowerCase();
           if (!envelope) {
             skipped.missingEnvelope += 1;
-            await client.messageFlagsAdd(message.uid, ['\\Seen'], { uid: true });
-            continue;
-          }
-          const ticketNumber = (envelope.subject ?? '').match(/\b[A-Z]{2,}-\d+\b/i)?.[0];
-          const sender = envelope.from?.[0]?.address?.toLowerCase();
-          if (!ticketNumber || !sender || !message.source) {
+          } else if (!ticketNumber || !sender || !message.source) {
             skipped.missingMetadata += 1;
-            await client.messageFlagsAdd(message.uid, ['\\Seen'], { uid: true });
-            continue;
+          } else {
+            const [{ data: ticket, error: ticketError }, { data: profile, error: profileError }] = await Promise.all([
+              admin.from('tickets').select('id,requester_id,assigned_to').ilike('ticket_number', ticketNumber).maybeSingle(),
+              admin.from('profiles').select('id,email,active,role').ilike('email', sender).eq('active', true).maybeSingle(),
+            ]);
+            if (ticketError) throw ticketError;
+            if (profileError) throw profileError;
+            if (!ticket) {
+              skipped.noTicket += 1;
+            } else if (profile && profile.role !== 'admin' && ticket.requester_id !== profile.id && ticket.assigned_to !== profile.id) {
+              skipped.notParticipant += 1;
+            } else {
+              const parsed = await simpleParser(message.source);
+              const body = replyText(parsed.text ?? '');
+              if (!body) {
+                skipped.emptyBody += 1;
+              } else {
+                const rawMessageId = parsed.messageId?.trim().toLowerCase();
+                const normalizedMessageId = rawMessageId?.replace(/^<|>$/g, '') || `imap:${message.uid}`;
+                const messageIdVariants = normalizedMessageId.startsWith('imap:')
+                  ? [normalizedMessageId]
+                  : [normalizedMessageId, `<${normalizedMessageId}>`];
+                const { data: existing, error: existingError } = await admin
+                  .from('ticket_comments')
+                  .select('id')
+                  .in('email_message_id', messageIdVariants)
+                  .limit(1)
+                  .maybeSingle();
+                if (existingError) throw existingError;
+                if (existing) {
+                  skipped.duplicate += 1;
+                } else {
+                  const { error: insertError } = await admin.from('ticket_comments').insert({
+                    id: emailCommentId(normalizedMessageId),
+                    ticket_id: ticket.id,
+                    author_id: profile?.id ?? ticket.requester_id,
+                    body,
+                    is_system: false,
+                    email_message_id: normalizedMessageId,
+                  });
+                  if (insertError && insertError.code !== '23505') throw insertError;
+                  if (insertError?.code === '23505') skipped.duplicate += 1;
+                  else imported += 1;
+                }
+              }
+            }
           }
-
-          const [{ data: ticket, error: ticketError }, { data: profile, error: profileError }] = await Promise.all([
-            admin.from('tickets').select('id,requester_id,assigned_to').ilike('ticket_number', ticketNumber).maybeSingle(),
-            admin.from('profiles').select('id,email,active,role').ilike('email', sender).eq('active', true).maybeSingle(),
-          ]);
-          if (ticketError) throw ticketError;
-          if (profileError) throw profileError;
-          if (!ticket) {
-            skipped.noTicket += 1;
-            await client.messageFlagsAdd(message.uid, ['\\Seen'], { uid: true });
-            continue;
-          }
-          if (profile && profile.role !== 'admin' && ticket.requester_id !== profile.id && ticket.assigned_to !== profile.id) {
-            skipped.notParticipant += 1;
-            await client.messageFlagsAdd(message.uid, ['\\Seen'], { uid: true });
-            continue;
-          }
-
-          const parsed = await simpleParser(message.source);
-          const body = replyText(parsed.text ?? '');
-          if (!body) {
-            skipped.emptyBody += 1;
-            await client.messageFlagsAdd(message.uid, ['\\Seen'], { uid: true });
-            continue;
-          }
-          const sourceMessageId = parsed.messageId?.trim().toLowerCase() || `imap:${message.uid}`;
-          const commentId = emailCommentId(sourceMessageId);
-          const { error: insertError } = await admin.from('ticket_comments').insert({
-            id: commentId,
-            ticket_id: ticket.id,
-            author_id: profile?.id ?? ticket.requester_id,
-            body,
-            is_system: false,
-            email_message_id: sourceMessageId,
-          });
-          if (insertError && insertError.code !== '23505') throw insertError;
-          if (insertError?.code === '23505') skipped.duplicate += 1;
-          else imported += 1;
           await client.messageFlagsAdd(message.uid, ['\\Seen'], { uid: true });
         }
       }
