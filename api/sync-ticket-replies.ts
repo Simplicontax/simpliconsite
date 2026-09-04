@@ -13,6 +13,10 @@ function replyText(value: string): string {
   return reply.replace(/\n{3,}/g, '\n\n').trim().slice(0, 5000);
 }
 
+function missingMessageIdColumn(error: { code?: string; message?: string } | null): boolean {
+  return Boolean(error && (error.code === 'PGRST204' || error.code === '42703' || /email_message_id/i.test(error.message ?? '')));
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   const supabaseUrl = process.env.SUPABASE_URL;
@@ -47,10 +51,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const body = replyText(parsed.text ?? '');
         if (!body) { await client.messageFlagsAdd(message.uid, ['\\Seen']); continue; }
         const sourceMessageId = parsed.messageId?.trim().toLowerCase() || `imap:${message.uid}`;
-        const { error } = await admin.from('ticket_comments').insert({ ticket_id: ticket.id, author_id: profile.id, body, is_system: false, email_message_id: sourceMessageId });
+        let { error } = await admin.from('ticket_comments').insert({ ticket_id: ticket.id, author_id: profile.id, body, is_system: false, email_message_id: sourceMessageId });
+        let inserted = !error;
+        if (missingMessageIdColumn(error)) {
+          const { data: duplicate, error: lookupError } = await admin.from('ticket_comments').select('id').eq('ticket_id', ticket.id).eq('author_id', profile.id).eq('body', body).limit(1).maybeSingle();
+          if (lookupError) throw lookupError;
+          if (!duplicate) {
+            const fallback = await admin.from('ticket_comments').insert({ ticket_id: ticket.id, author_id: profile.id, body, is_system: false });
+            error = fallback.error;
+            inserted = !error;
+          } else {
+            error = null;
+          }
+        }
         if (error && error.code !== '23505') throw error;
         await client.messageFlagsAdd(message.uid, ['\\Seen']);
-        if (!error) imported += 1;
+        if (inserted) imported += 1;
       }
     } finally { lock.release(); }
   } catch (error) {

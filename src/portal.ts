@@ -90,23 +90,25 @@ async function notifyTicketParticipants(ticketId:string):Promise<boolean> {
     return true;
   }catch(error){console.error('Ticket email notification failed:',error);return false;}
 }
-async function syncTicketEmailReplies(announce=false):Promise<void> {
-  if(!supabase||currentProfile?.role!=='admin'||ticketReplySyncInFlight)return;
+async function syncTicketEmailReplies(announce=false):Promise<boolean> {
+  if(!supabase||currentProfile?.role!=='admin'||ticketReplySyncInFlight)return false;
   ticketReplySyncInFlight=true;
   try{
-    const {data:{session}}=await supabase.auth.getSession();if(!session)return;
+    const {data:{session}}=await supabase.auth.getSession();if(!session)return false;
     const response=await fetch('/api/sync-ticket-replies',{method:'POST',headers:{Authorization:'Bearer '+session.access_token}});
-    if(!response.ok)return;
+    if(!response.ok){console.error('Ticket reply sync failed:',response.status,await response.text());return false;}
     const result=await response.json() as {imported?:number};
     if(result.imported){await refreshTicketData();if(announce)showToast(String(result.imported)+' email '+(result.imported===1?'reply was':'replies were')+' added to ticket chat.');}
-  }catch{ /* Keep workspace usable if GoDaddy is temporarily unavailable. */ }
+    return true;
+  }catch(error){console.error('Ticket reply sync failed:',error);return false;}
   finally{ticketReplySyncInFlight=false;}
 }
 function startTicketReplySync():void {
-  if(ticketReplySyncTimer)window.clearInterval(ticketReplySyncTimer);if(currentProfile?.role!=='admin')return;
-  void syncTicketEmailReplies(false);ticketReplySyncTimer=window.setInterval(()=>{if(document.visibilityState==='visible')void syncTicketEmailReplies(false);},8000);
+  stopTicketReplySync();if(currentProfile?.role!=='admin')return;
+  const run=async()=>{if(currentProfile?.role!=='admin')return;if(document.visibilityState!=='visible'){ticketReplySyncTimer=window.setTimeout(()=>void run(),5000);return;}const healthy=await syncTicketEmailReplies(false);ticketReplySyncTimer=window.setTimeout(()=>void run(),healthy?2000:10000);};
+  void run();
 }
-function stopTicketReplySync():void { if(ticketReplySyncTimer)window.clearInterval(ticketReplySyncTimer);ticketReplySyncTimer=undefined; }
+function stopTicketReplySync():void { if(ticketReplySyncTimer)window.clearTimeout(ticketReplySyncTimer);ticketReplySyncTimer=undefined; }
 function subscribeToTicketComments():void {
   realtimeChannel?.unsubscribe();realtimeChannel=null;if(!supabase||!currentProfile)return;
   realtimeChannel=supabase.channel('ticket-comments:'+currentProfile.id).on('postgres_changes',{event:'INSERT',schema:'public',table:'ticket_comments'},()=>{
