@@ -46,9 +46,9 @@ function smtpFailureDetail(error: unknown): string {
   return 'SMTP provider rejected the message. Review Vercel Function logs.';
 }
 
-function renderEmail(ticket: Ticket, event: EmailEvent, actor: Profile, recipient: Profile, portalUrl: string): { subject: string; html: string; text: string } {
+function renderEmail(ticket: Ticket, event: EmailEvent, actor: Profile, recipient: Profile, portalUrl: string, seq: string): { subject: string; html: string; text: string } {
   const label = eventLabels[event.event_type] ?? 'Ticket updated';
-  const subject = ticket.ticket_number + ' · ' + label;
+  const subject = ticket.ticket_number + ' · ' + label + ' #' + seq;
   const safeDetail = escapeHtml(event.detail).replace(/\n/g, '<br>');
   const siteUrl = portalUrl.replace(/\/$/, '');
   const ticketUrl = siteUrl + '/portal.html';
@@ -138,10 +138,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!administrator) throw new Error('The administrator notification address is not configured');
 
     const transporter = nodemailer.createTransport({ host: smtpHost, port: smtpPort, secure: smtpPort === 465, auth: { user: smtpUser, pass: smtpPass } });
+    // Sequence counter: count already-sent events so each outgoing email gets a unique #NNN reference
+    let seqBase = 1;
+    if (queueAvailable) {
+      const { count: sentCount } = await adminClient.from('ticket_email_events')
+        .select('id', { count: 'exact', head: true })
+        .eq('ticket_id', ticketId).not('processed_at', 'is', null);
+      seqBase = (sentCount ?? 0) + 1;
+    }
     let sent = 0;
     let failed = 0;
     let failureDetail = '';
+    let seqOffset = 0;
     for (const event of events) {
+      seqOffset += 1;
+      const seq = String(seqBase + seqOffset - 1).padStart(3, '0');
       const recipients = caller.role === 'client'
         ? [administrator, ...(assigned?.role === 'team' ? [assigned] : [])]
         : [...(requester ? [requester] : []), ...(assigned?.role === 'team' ? [assigned] : [])];
@@ -160,7 +171,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         if (existing?.sent_at) continue;
         const attempts = Number(existing?.attempts ?? 0) + 1;
-        const delivery = renderEmail(ticket as Ticket, event, caller as Profile, recipient, portalUrl);
+        const delivery = renderEmail(ticket as Ticket, event, caller as Profile, recipient, portalUrl, seq);
         try {
           await transporter.sendMail({ from: `"Simplicon Tax Advisors" <${smtpFrom}>`, replyTo: ticketReplyTo, to: normalizedEmail, subject: delivery.subject, text: delivery.text, html: delivery.html });
           if (queueAvailable) await adminClient.from('ticket_email_deliveries').upsert({ event_id: event.id, recipient_email: normalizedEmail, attempts, sent_at: new Date().toISOString(), last_error: null }, { onConflict: 'event_id,recipient_email' });

@@ -74,19 +74,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           admin.from('tickets').select('id,requester_id,assigned_to').ilike('ticket_number', ticketNumber).maybeSingle(),
           admin.from('profiles').select('id,email,active,role').ilike('email', sender).eq('active', true).maybeSingle(),
         ]);
-        if (ticketError) throw ticketError;if(profileError)throw profileError;
+        if (ticketError) throw ticketError; if (profileError) throw profileError;
         if (!ticket) { skipped.noTicket += 1; continue; }
-        if (!profile) { skipped.noProfile += 1; continue; }
-        if (profile.role !== 'admin' && ticket.requester_id !== profile.id && ticket.assigned_to !== profile.id) { skipped.notParticipant += 1; continue; }
+        // If sender is in profiles, verify they're a participant on this ticket
+        if (profile && profile.role !== 'admin' && ticket.requester_id !== profile.id && ticket.assigned_to !== profile.id) { skipped.notParticipant += 1; continue; }
+        // If sender is not in profiles, attribute the reply to the ticket requester (customer replying via email)
+        const authorId = profile ? profile.id : ticket.requester_id;
         const parsed = await simpleParser(message.source);
         const body = replyText(parsed.text ?? '');
         if (!body) { skipped.emptyBody += 1; await client.messageFlagsAdd(message.uid, ['\\Seen'], { uid: true }); continue; }
         const sourceMessageId = parsed.messageId?.trim().toLowerCase() || `imap:${message.uid}`;
         const commentId = emailCommentId(sourceMessageId);
-        let { error } = await admin.from('ticket_comments').insert({ id: commentId, ticket_id: ticket.id, author_id: profile.id, body, is_system: false, email_message_id: sourceMessageId });
+        let { error } = await admin.from('ticket_comments').insert({ id: commentId, ticket_id: ticket.id, author_id: authorId, body, is_system: false, email_message_id: sourceMessageId });
         let inserted = !error;
         if (missingMessageIdColumn(error)) {
-          const fallback = await admin.from('ticket_comments').insert({ id: commentId, ticket_id: ticket.id, author_id: profile.id, body, is_system: false });
+          const fallback = await admin.from('ticket_comments').insert({ id: commentId, ticket_id: ticket.id, author_id: authorId, body, is_system: false });
           error = fallback.error;
           inserted = !error;
         }
