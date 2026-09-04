@@ -5,7 +5,7 @@ type Role = 'client' | 'team' | 'admin';
 type TicketStatus = 'new' | 'open' | 'work_in_progress' | 'pending' | 'pending_for_review' | 'waiting_for_client' | 'completed' | 'waiting_on_client' | 'in_review' | 'ready_for_review' | 'complete';
 type WorkspaceView = 'tickets' | 'documents' | 'users' | 'organizer';
 type Profile = { id:string; email:string; fullName:string; phone:string; jobTitle:string; role:Role; active:boolean; frozenAt?:string|null; removedAt?:string|null };
-type Activity = { id:string; author:string; authorInitials:string; text:string; time:string; createdAt:string; system:boolean };
+type Activity = { id:string; authorId:string; author:string; authorInitials:string; text:string; time:string; createdAt:string; system:boolean };
 type TicketDocument = { id:string; name:string; size:string; type:string; uploadedBy:string; uploadedById:string; createdAt?:string; storagePath?:string };
 type Ticket = {
   id:string; number:string; title:string; country:string; year:string; status:TicketStatus; priority:string;
@@ -23,7 +23,7 @@ type PortalCache = { version:number; userId:string; savedAt:number; profile:Prof
 
 const TAX_ORGANIZER_BUCKET = 'tax-organizers';
 const TAX_ORGANIZER_PATH = 'current/Simplicon-Tax-Organizer.xlsx';
-const PORTAL_CACHE_VERSION = 1;
+const PORTAL_CACHE_VERSION = 2;
 const PORTAL_CACHE_MAX_AGE = 30 * 60 * 1000;
 const PORTAL_CACHE_PREFIX = 'simplicon.portal.workspace.';
 const blockedExtensions = new Set(['bat','cmd','com','exe','msi','msp','scr','ps1','psm1','vbs','vbe','js','jse','jar','sh','bash','zsh','ksh','csh','apk','app','dmg','iso','reg','dll','sys','lnk','url','php','phtml','py','pyc','rb','pl','cgi','wasm','html','htm','svg','env','htaccess','docm','xlsm','pptm','mp4','mov','avi','mkv','webm','wmv','m4v','mpeg','mpg','3gp','flv','ogv']);
@@ -48,6 +48,7 @@ let realtimeChannel: { unsubscribe: () => unknown }|null = null;
 let realtimeRefreshTimer:number|undefined;
 let ticketReplySyncTimer:number|undefined;
 let ticketReplySyncInFlight=false;
+let lastTicketReplySyncSignature='';
 
 function portalCacheKey(userId:string):string { return `${PORTAL_CACHE_PREFIX}${userId}`; }
 function clearWorkspaceCache(userId?:string):void {
@@ -123,9 +124,9 @@ async function syncTicketEmailReplies(announce=false):Promise<boolean> {
     const {data:{session}}=await supabase.auth.getSession();if(!session)return false;
     const response=await fetch('/api/sync-ticket-replies',{method:'POST',headers:{Authorization:'Bearer '+session.access_token}});
     if(!response.ok){console.error('Ticket reply sync failed:',response.status,await response.text());return false;}
-    const result=await response.json() as {imported?:number;scanned?:number;skipped?:Record<string,number>};
+    const result=await response.json() as {mailbox?:string;imported?:number;scanned?:number;skipped?:Record<string,number>};
+    const signature=JSON.stringify(result);if(signature!==lastTicketReplySyncSignature){console.log('Ticket reply sync result:',result);lastTicketReplySyncSignature=signature;}
     if(result.imported){await refreshTicketData();if(announce)showToast(String(result.imported)+' email '+(result.imported===1?'reply was':'replies were')+' added to ticket chat.');}
-    else if(result.scanned)console.info('Ticket reply sync found no importable reply.',result);
     return true;
   }catch(error){console.error('Ticket reply sync failed:',error);return false;}
   finally{ticketReplySyncInFlight=false;}
@@ -256,7 +257,7 @@ async function loadSupabaseData():Promise<void> {
   tickets=rows.map((row)=>({
     id:row.id,number:row.ticket_number,title:row.subject,country:row.country,year:String(row.tax_year),status:row.status,priority:row.priority,requesterId:row.requester_id,
     requesterName:row.requester_name??profileMap.get(row.requester_id)?.fullName??'Client',assigneeId:row.assigned_to??'',assigneeName:row.assigned_to?profileMap.get(row.assigned_to)?.fullName??'Assigned specialist':'Admin queue',updated:formatTime(row.updated_at),description:row.description,
-    activities:comments.filter((comment)=>comment.ticket_id===row.id).map((comment)=>{const author=profileMap.get(comment.author_id);return{id:comment.id,author:comment.is_system?'Simplicon':author?.fullName??'User',authorInitials:comment.is_system?'S':initials(author?.fullName??'User'),text:comment.body,time:formatTime(comment.created_at),createdAt:comment.created_at,system:comment.is_system};}),
+    activities:comments.filter((comment)=>comment.ticket_id===row.id).map((comment)=>{const author=profileMap.get(comment.author_id);return{id:comment.id,authorId:comment.author_id,author:comment.is_system?'Simplicon':author?.fullName??'User',authorInitials:comment.is_system?'S':initials(author?.fullName??'User'),text:comment.body,time:formatTime(comment.created_at),createdAt:comment.created_at,system:comment.is_system};}),
     documents:documents.filter((document)=>document.ticket_id===row.id).map((document)=>({id:document.id,name:document.file_name,size:formatBytes(document.size_bytes),type:document.document_type??'Client upload',uploadedBy:profileMap.get(document.uploaded_by)?.fullName??'User',uploadedById:document.uploaded_by,createdAt:formatTime(document.created_at),storagePath:document.storage_path})),
   }));
   selectedTicketId=tickets[0]?.id??'';
@@ -387,7 +388,7 @@ function renderGlobalDocuments():void {
   document.querySelectorAll<HTMLButtonElement>('[data-global-delete]').forEach((button)=>button.addEventListener('click',()=>openDocumentDelete(button.dataset.globalDelete??'')));
 }
 
-function recentNotificationEntries():{ticket:Ticket;activity:Activity}[] { return tickets.flatMap((ticket)=>ticket.activities.map((activity)=>({ticket,activity}))).sort((a,b)=>Date.parse(b.activity.createdAt)-Date.parse(a.activity.createdAt)||b.activity.id.localeCompare(a.activity.id)).slice(0,8); }
+function recentNotificationEntries():{ticket:Ticket;activity:Activity}[] { return tickets.flatMap((ticket)=>ticket.activities.filter((activity)=>activity.authorId!==currentProfile?.id).map((activity)=>({ticket,activity}))).sort((a,b)=>Date.parse(b.activity.createdAt)-Date.parse(a.activity.createdAt)||b.activity.id.localeCompare(a.activity.id)).slice(0,8); }
 function notificationStorageKey():string { return `simplicon-read-notifications:${currentProfile?.id??'guest'}`; }
 function loadReadNotifications():void {
   readNotificationIds.clear();

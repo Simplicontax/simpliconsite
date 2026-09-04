@@ -144,7 +144,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     for (const event of events) {
       const recipients = caller.role === 'client'
         ? [administrator, ...(assigned?.role === 'team' ? [assigned] : [])]
-        : [...(requester ? [requester] : []), ...(event.event_type === 'assignment_changed' && assigned?.role === 'team' ? [assigned] : [])];
+        : [...(requester ? [requester] : []), ...(assigned?.role === 'team' ? [assigned] : [])];
       if (event.event_type === 'ticket_created') recipients.push(administrator);
       const uniqueRecipients = [...new Map(recipients
         .filter((p) => p.id !== caller.id || (event.event_type === 'ticket_created' && p.id === administrator.id))
