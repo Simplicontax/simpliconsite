@@ -124,12 +124,12 @@ async function syncTicketEmailReplies(announce=false):Promise<boolean> {
     const {data:{session}}=await supabase.auth.getSession();
     if(!session){el<HTMLElement>('replySyncStatus').textContent='Sync paused: session expired. Please sign in again.';return false;}
     const controller=new AbortController();
-    const timeoutId=window.setTimeout(()=>controller.abort(),12000);
-    let response:Response;
+    const timeoutId=window.setTimeout(()=>controller.abort(),25000);
+      let response:Response;
       try{
         response=await fetch(import.meta.env.VITE_SUPABASE_URL+'/functions/v1/sync-ticket-replies',{method:'POST',cache:'no-store',headers:{Authorization:'Bearer '+session.access_token},signal:controller.signal});
       }catch(fetchError){
-        el<HTMLElement>('replySyncStatus').textContent=fetchError instanceof Error&&fetchError.name==='AbortError'?'Mailbox check timed out (IMAP slow to respond). Will retry…':`Sync error: ${fetchError instanceof Error?fetchError.message:'Network error'}`;
+        el<HTMLElement>('replySyncStatus').textContent=fetchError instanceof Error&&fetchError.name==='AbortError'?'Mailbox check is taking a while (GoDaddy IMAP is slow). Will keep trying…':`Sync error: ${fetchError instanceof Error?fetchError.message:'Network error'}`;
         return false;
       }finally{window.clearTimeout(timeoutId);}
       if(!response.ok){
@@ -160,9 +160,9 @@ async function syncTicketEmailReplies(announce=false):Promise<boolean> {
       if(currentProfile?.role!=='admin'||document.visibilityState!=='visible')return;
       void syncTicketEmailReplies(false);
     };
-    console.warn('Ticket reply polling started:',{role:currentProfile?.role??'none',intervalMs:15000});
+    console.warn('Ticket reply polling started:',{role:currentProfile?.role??'none',intervalMs:35000});
     run();
-    ticketReplySyncTimer=window.setInterval(run,15000);
+    ticketReplySyncTimer=window.setInterval(run,35000);
   }
 
 function stopTicketReplySync():void { if(ticketReplySyncTimer)window.clearInterval(ticketReplySyncTimer);ticketReplySyncTimer=undefined; }
