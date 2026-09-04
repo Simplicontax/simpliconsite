@@ -42,6 +42,8 @@ let accessCheckInFlight = false;
 const readNotificationIds = new Set<string>();
 let realtimeChannel: { unsubscribe: () => unknown }|null = null;
 let realtimeRefreshTimer:number|undefined;
+let ticketReplySyncTimer:number|undefined;
+let ticketReplySyncInFlight=false;
 
 const el = <T extends HTMLElement>(id:string):T => {
   const node=document.getElementById(id);
@@ -88,16 +90,23 @@ async function notifyTicketParticipants(ticketId:string):Promise<boolean> {
     return true;
   }catch(error){console.error('Ticket email notification failed:',error);return false;}
 }
-async function syncTicketEmailReplies():Promise<void> {
-  if(!supabase||currentProfile?.role!=='admin')return;
+async function syncTicketEmailReplies(announce=false):Promise<void> {
+  if(!supabase||currentProfile?.role!=='admin'||ticketReplySyncInFlight)return;
+  ticketReplySyncInFlight=true;
   try{
     const {data:{session}}=await supabase.auth.getSession();if(!session)return;
     const response=await fetch('/api/sync-ticket-replies',{method:'POST',headers:{Authorization:'Bearer '+session.access_token}});
     if(!response.ok)return;
     const result=await response.json() as {imported?:number};
-    if(result.imported){await loadSupabaseData();showToast(String(result.imported)+' email '+(result.imported===1?'reply was':'replies were')+' added to ticket chat.');}
+    if(result.imported){await refreshTicketData();if(announce)showToast(String(result.imported)+' email '+(result.imported===1?'reply was':'replies were')+' added to ticket chat.');}
   }catch{ /* Keep workspace usable if GoDaddy is temporarily unavailable. */ }
+  finally{ticketReplySyncInFlight=false;}
 }
+function startTicketReplySync():void {
+  if(ticketReplySyncTimer)window.clearInterval(ticketReplySyncTimer);if(currentProfile?.role!=='admin')return;
+  void syncTicketEmailReplies(false);ticketReplySyncTimer=window.setInterval(()=>{if(document.visibilityState==='visible')void syncTicketEmailReplies(false);},8000);
+}
+function stopTicketReplySync():void { if(ticketReplySyncTimer)window.clearInterval(ticketReplySyncTimer);ticketReplySyncTimer=undefined; }
 function subscribeToTicketComments():void {
   realtimeChannel?.unsubscribe();realtimeChannel=null;if(!supabase||!currentProfile)return;
   realtimeChannel=supabase.channel('ticket-comments:'+currentProfile.id).on('postgres_changes',{event:'INSERT',schema:'public',table:'ticket_comments'},()=>{
@@ -172,7 +181,7 @@ async function enterAuthenticatedWorkspace(user:User):Promise<void> {
     const row=data as DbProfile;
     if(!row.active){showToast('This account is inactive. Contact the administrator.',true);await supabase.auth.signOut();return;}
     currentProfile={id:row.id,email:row.email,fullName:row.full_name,phone:row.phone??'',jobTitle:row.job_title??'',role:row.role,active:row.active,frozenAt:row.frozen_at,removedAt:row.removed_at};
-    await loadSupabaseData();await syncTicketEmailReplies();subscribeToTicketComments();showWorkspace();
+    await loadSupabaseData();await syncTicketEmailReplies(false);subscribeToTicketComments();startTicketReplySync();showWorkspace();
   }catch(error){finishBootstrap(true);showToast(error instanceof Error?error.message:'Unable to load your workspace.',true);}finally{workspaceEntryInFlight=false;}
 }
 
@@ -526,7 +535,7 @@ function wireEvents():void {
   document.querySelectorAll<HTMLButtonElement>('[data-auth-mode]').forEach((button)=>button.addEventListener('click',()=>setAuthMode(button.dataset.authMode as 'signin'|'signup')));el<HTMLFormElement>('authForm').addEventListener('submit',(event)=>void authenticate(event));
   document.querySelectorAll<HTMLButtonElement>('[data-auth-provider]').forEach((button)=>button.addEventListener('click',()=>void authenticateWithProvider(button.dataset.authProvider as Provider,button)));
   el<HTMLButtonElement>('forgotPassword').addEventListener('click',async()=>{if(!supabase){showToast('The secure workspace is unavailable.',true);return;}const email=el<HTMLInputElement>('authEmail').value.trim();if(!email){showToast('Enter your email address first.',true);return;}const button=el<HTMLButtonElement>('forgotPassword');setButtonLoading(button,true,'Sending reset link…');try{const {error}=await supabase.auth.resetPasswordForEmail(email,{redirectTo:`${window.location.origin}/portal.html`});showToast(error?error.message:'Password reset email sent.',Boolean(error));}finally{setButtonLoading(button,false);}});
-  const signOut=async(button:HTMLButtonElement)=>{setButtonLoading(button,true,'Signing out…');try{if(!supabase)throw new Error('The secure workspace is unavailable.');const {error}=await supabase.auth.signOut();if(error)throw error;currentProfile=null;realtimeChannel?.unsubscribe();realtimeChannel=null;finishBootstrap(true);showToast('You have signed out securely.');}catch(error){showToast(error instanceof Error?error.message:'Unable to sign out.',true);}finally{setButtonLoading(button,false);}};
+  const signOut=async(button:HTMLButtonElement)=>{setButtonLoading(button,true,'Signing out…');try{if(!supabase)throw new Error('The secure workspace is unavailable.');const {error}=await supabase.auth.signOut();if(error)throw error;currentProfile=null;stopTicketReplySync();realtimeChannel?.unsubscribe();realtimeChannel=null;finishBootstrap(true);showToast('You have signed out securely.');}catch(error){showToast(error instanceof Error?error.message:'Unable to sign out.',true);}finally{setButtonLoading(button,false);}};
   ['signOutButton','sidebarSignOutButton'].forEach((id)=>el<HTMLButtonElement>(id).addEventListener('click',()=>void signOut(el<HTMLButtonElement>(id))));
   const accountMenuButton=el<HTMLButtonElement>('accountMenuButton');const accountMenu=el<HTMLElement>('accountMenu');accountMenuButton.addEventListener('click',(event)=>{event.stopPropagation();const hidden=accountMenu.classList.toggle('hidden');accountMenuButton.setAttribute('aria-expanded',String(!hidden));});accountMenu.addEventListener('click',(event)=>event.stopPropagation());document.addEventListener('click',closeAccountMenu);document.addEventListener('keydown',(event)=>{if(event.key==='Escape')closeAccountMenu();});
   document.querySelectorAll<HTMLButtonElement>('[data-view]').forEach((button)=>button.addEventListener('click',()=>switchView(button.dataset.view as WorkspaceView)));
@@ -549,13 +558,13 @@ function wireEvents():void {
 }
 
 async function initialize():Promise<void> {
-  wireEvents();updateLocalGreeting();window.setInterval(updateLocalGreeting,60000);window.setInterval(()=>void verifyCurrentAccess(),60000);window.addEventListener('focus',()=>void verifyCurrentAccess());const requestedMode=new URLSearchParams(window.location.search).get('mode');setAuthMode(requestedMode==='signup'?'signup':'signin');
+  wireEvents();updateLocalGreeting();window.setInterval(updateLocalGreeting,60000);window.setInterval(()=>void verifyCurrentAccess(),60000);window.addEventListener('focus',()=>{void verifyCurrentAccess();void syncTicketEmailReplies(false);});document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')void syncTicketEmailReplies(false);});const requestedMode=new URLSearchParams(window.location.search).get('mode');setAuthMode(requestedMode==='signup'?'signup':'signin');
   if(!isSupabaseConfigured){el<HTMLElement>('authConfig').classList.remove('hidden');finishBootstrap(true);return;}
   try{const {data,error}=await supabase!.auth.getSession();if(error)throw error;if(data.session?.user)await enterAuthenticatedWorkspace(data.session.user);else finishBootstrap(true);}catch(error){finishBootstrap(true);showToast(error instanceof Error?error.message:'Unable to restore your session.',true);}
   supabase!.auth.onAuthStateChange((event,session)=>{
     if(event==='PASSWORD_RECOVERY'){finishBootstrap(true);window.setTimeout(()=>el<HTMLDialogElement>('resetPasswordDialog').showModal(),0);return;}
     if(event==='SIGNED_IN'&&session?.user&&!currentProfile){organizerGatePending=true;window.setTimeout(()=>void enterAuthenticatedWorkspace(session.user),0);}
-    if(event==='SIGNED_OUT'){currentProfile=null;realtimeChannel?.unsubscribe();realtimeChannel=null;finishBootstrap(true);}
+    if(event==='SIGNED_OUT'){currentProfile=null;stopTicketReplySync();realtimeChannel?.unsubscribe();realtimeChannel=null;finishBootstrap(true);}
   });
 }
 

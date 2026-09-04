@@ -33,7 +33,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     await client.connect();
     const lock = await client.getMailboxLock(process.env.TICKET_REPLY_IMAP_FOLDER ?? 'Ticket Replies');
     try {
-      for await (const message of client.fetch({ seen: false }, { uid: true, envelope: true, source: true })) {
+      for await (const message of client.fetch({ or: [{ seen: false }, { since: new Date(Date.now() - 86400000) }] }, { uid: true, envelope: true, source: true })) {
         const subject = message.envelope.subject ?? '';
         const ticketNumber = subject.match(/\b[A-Z]{2,}-\d+\b/i)?.[0];
         const sender = message.envelope.from?.[0]?.address?.toLowerCase();
