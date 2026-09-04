@@ -19,10 +19,10 @@ function missingMessageIdColumn(error: { code?: string; message?: string } | nul
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseUrl = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const imapUser = process.env.IMAP_USER;
-  const imapPass = process.env.IMAP_PASS;
+  const imapUser = process.env.IMAP_USER ?? process.env.SMTP_USER;
+  const imapPass = process.env.IMAP_PASS ?? process.env.SMTP_PASS;
   const authorization = req.headers.authorization;
   if (!supabaseUrl || !serviceRoleKey || !imapUser || !imapPass || !authorization) return res.status(503).json({ error: 'Reply sync is not configured' });
   const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
@@ -31,7 +31,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { data: operator } = await admin.from('profiles').select('role,active').eq('id', user.id).single();
   if (!operator?.active || operator.role !== 'admin') return res.status(403).json({ error: 'Administrator access required' });
 
-  const client = new ImapFlow({ host: process.env.IMAP_HOST ?? 'imap.secureserver.net', port: Number(process.env.IMAP_PORT ?? '993'), secure: true, auth: { user: imapUser, pass: imapPass } });
+  const smtpHost = process.env.SMTP_HOST?.toLowerCase() ?? '';
+  const defaultImapHost = smtpHost.includes('titan') ? 'imap.titan.email' : 'imap.secureserver.net';
+  const client = new ImapFlow({ host: process.env.IMAP_HOST ?? defaultImapHost, port: Number(process.env.IMAP_PORT ?? '993'), secure: true, auth: { user: imapUser, pass: imapPass } });
   let imported = 0;
   try {
     await client.connect();
