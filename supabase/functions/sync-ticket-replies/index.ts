@@ -1,4 +1,4 @@
-﻿import { createClient } from 'npm:@supabase/supabase-js@2';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 import { ImapFlow } from 'npm:imapflow';
 import { simpleParser } from 'npm:mailparser';
 import { createHash } from 'node:crypto';
@@ -64,7 +64,7 @@ Deno.serve(async (req: Request) => {
   if (!operator?.active || operator.role !== 'admin') return new Response(JSON.stringify({ error: 'Administrator access required' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
   const smtpHost = Deno.env.get('SMTP_HOST')?.toLowerCase() ?? '';
-  const defaultImapHost = smtpHost.includes('titan') ? 'imap.titan.email' : 'imap.secureserver.net';
+  const defaultImapHost = smtpHost.includes('secureserver') || smtpHost.includes('godaddy') ? 'imap.secureserver.net' : 'imap.titan.email';
   
   const client = new ImapFlow({
     host: Deno.env.get('IMAP_HOST') ?? defaultImapHost,
@@ -128,11 +128,16 @@ Deno.serve(async (req: Request) => {
   } catch (error: any) {
     const message = error instanceof Error ? error.message : String(error);
     const isFolderMissing = /IMAP folder .* was not found/i.test(message);
-    console.error('Ticket email reply sync failed', message);
+    const diagnostic = {
+      command: typeof error?.command === 'string' ? error.command : undefined,
+      responseStatus: typeof error?.responseStatus === 'string' ? error.responseStatus : undefined,
+      responseText: typeof error?.responseText === 'string' ? error.responseText : undefined,
+    };
+    console.error('Ticket email reply sync failed', { message, ...diagnostic });
     if (isFolderMissing) {
-      return new Response(JSON.stringify({ error: message, hint: 'Create the folder in GoDaddy Webmail and add a filter rule to move ticket replies into it.' }), { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify({ error: message, hint: 'Create the folder in GoDaddy Webmail and add a filter rule to move ticket replies into it.', diagnostic }), { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
-    return new Response(JSON.stringify({ error: 'Could not sync ticket replies', detail: message }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ error: 'Could not sync ticket replies', detail: message, diagnostic }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } finally { await client.logout().catch((): void => undefined); }
   
   console.info('Ticket reply sync completed', { mailbox: replyMailbox, scanned, imported, skipped });

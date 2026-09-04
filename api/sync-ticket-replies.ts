@@ -28,6 +28,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const payload = await upstream.text();
 
     res.setHeader('Cache-Control', 'no-store');
+    if (!payload.trim()) {
+      console.error('Ticket reply sync function returned an empty response', { status: upstream.status });
+      return res.status(502).json({ error: 'The mailbox sync service returned no diagnostic response', upstreamStatus: upstream.status });
+    }
     res.setHeader('Content-Type', upstream.headers.get('content-type') ?? 'application/json');
     return res.status(upstream.status).send(payload);
   } catch (error) {
