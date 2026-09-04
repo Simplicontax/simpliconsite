@@ -161,9 +161,9 @@ async function syncTicketEmailReplies(announce=false):Promise<boolean> {
       if(currentProfile?.role!=='admin'||document.visibilityState!=='visible')return;
       void syncTicketEmailReplies(false);
     };
-    console.warn('Ticket reply polling started:',{role:currentProfile?.role??'none',intervalMs:35000});
+    console.warn('Ticket reply polling started:',{role:currentProfile?.role??'none',intervalMs:15000});
     run();
-    ticketReplySyncTimer=window.setInterval(run,35000);
+    ticketReplySyncTimer=window.setInterval(run,15000);
   }
 
 function stopTicketReplySync():void { if(ticketReplySyncTimer)window.clearInterval(ticketReplySyncTimer);ticketReplySyncTimer=undefined; }
@@ -432,7 +432,10 @@ function renderNotifications():void {
   el<HTMLElement>('notificationSummary').textContent=unread.length?`${unread.length} update${unread.length===1?'':'s'} need your attention`:'You are all caught up';
   const markButton=el<HTMLButtonElement>('markAllReadButton');markButton.disabled=unread.length===0;markButton.textContent=unread.length?'Mark all as read':'All read';
   el<HTMLElement>('notificationList').innerHTML=updates.map(({ticket,activity})=>{const key=`${ticket.id}:${activity.id}`;return `<button class="${readNotificationIds.has(key)?'':'unread'}" data-notification-ticket="${ticket.id}" data-notification-key="${key}"><span class="activity-icon ${activity.system?'system':''}">${activity.authorInitials}</span><div><strong>${escapeHtml(ticket.number)} · ${escapeHtml(activity.author)}</strong><p>${escapeHtml(activity.text)}</p><small>${escapeHtml(activity.time)} · ${escapeHtml(ticket.country)}</small></div><span class="notification-status">${escapeHtml(statusLabel(ticket.status))}</span></button>`;}).join('')||'<div class="empty-state"><h3>No notifications yet</h3><p>Ticket updates and document activity will appear here.</p></div>';
-  el<HTMLElement>('notificationDot').classList.toggle('hidden',unread.length===0);
+  const notificationBadge=el<HTMLElement>('notificationDot');
+  notificationBadge.textContent=unread.length>99?'99+':String(unread.length);
+  notificationBadge.classList.toggle('hidden',unread.length===0);
+  el<HTMLButtonElement>('notificationsButton').setAttribute('aria-label',unread.length?`Notifications, ${unread.length} unread update${unread.length===1?'':'s'}`:'Notifications, no unread updates');
   document.querySelectorAll<HTMLButtonElement>('[data-notification-ticket]').forEach((button)=>button.addEventListener('click',()=>{readNotificationIds.add(button.dataset.notificationKey??'');persistReadNotifications();selectedTicketId=button.dataset.notificationTicket??'';el<HTMLDialogElement>('notificationDialog').close();switchView('tickets');renderTickets();renderDetail();renderNotifications();}));
 }
 

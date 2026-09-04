@@ -63,7 +63,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .topbar-actions { display: flex; align-items: center; gap: .65rem; }
 
 .icon-button { position: relative; display: grid; width: 40px; height: 40px; place-items: center; border: 1px solid var(--line); border-radius: 11px; color: var(--ink); background: #fff; cursor: pointer; }
-.icon-button > span { position: absolute; top: 7px; right: 8px; width: 6px; height: 6px; border: 1px solid #fff; border-radius: 50%; background: #df5a66; }
+.icon-button > span { position: absolute; top: -5px; right: -5px; display: grid; min-width: 17px; height: 17px; padding: 0 4px; place-items: center; border: 2px solid #fff; border-radius: 999px; color: #fff; background: #df5a66; font-size: .56rem; font-weight: 800; line-height: 1; }
 .primary-action { padding: .72rem 1rem; border: 0; border-radius: 11px; color: #fff; background: var(--teal); cursor: pointer; font-size: .78rem; font-weight: 700; box-shadow: 0 6px 18px rgba(15,118,110,.22); }
 .mobile-menu { display: none; }
 
