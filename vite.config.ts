@@ -18,6 +18,11 @@ export default defineConfig({
         usTax: 'us-tax-filing.html',
         indiaTax: 'india-tax-filing.html',
       },
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules/@supabase/') || id.includes('node_modules/@realtime/') || id.includes('node_modules/@typespec/ts-http-runtime')) return 'supabase-vendor';
+        },
+      },
     },
   },
 });

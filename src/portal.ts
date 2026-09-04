@@ -18,10 +18,14 @@ type DbComment = { id:string; ticket_id:string; author_id:string; body:string; i
 type DbDocument = { id:string; ticket_id:string; uploaded_by:string; storage_path:string; file_name:string; size_bytes:number; document_type:string|null; created_at:string };
 type TaxOrganizer = { storagePath:string; fileName:string; mimeType:string; sizeBytes:number; updatedAt:string };
 type DbOrganizer = { storage_path:string; file_name:string; mime_type:string; size_bytes:number; updated_at:string };
+type PortalCache = { version:number; userId:string; savedAt:number; profile:Profile; tickets:Ticket[]; profiles:Profile[]; organizer:TaxOrganizer|null; selectedTicketId:string };
 
 
 const TAX_ORGANIZER_BUCKET = 'tax-organizers';
 const TAX_ORGANIZER_PATH = 'current/Simplicon-Tax-Organizer.xlsx';
+const PORTAL_CACHE_VERSION = 1;
+const PORTAL_CACHE_MAX_AGE = 30 * 60 * 1000;
+const PORTAL_CACHE_PREFIX = 'simplicon.portal.workspace.';
 const blockedExtensions = new Set(['bat','cmd','com','exe','msi','msp','scr','ps1','psm1','vbs','vbe','js','jse','jar','sh','bash','zsh','ksh','csh','apk','app','dmg','iso','reg','dll','sys','lnk','url','php','phtml','py','pyc','rb','pl','cgi','wasm','html','htm','svg','env','htaccess','docm','xlsm','pptm','mp4','mov','avi','mkv','webm','wmv','m4v','mpeg','mpg','3gp','flv','ogv']);
 const blockedMimeTypes = new Set(['application/x-msdownload','application/x-dosexec','application/x-executable','application/x-sh','application/x-bat','application/java-archive','application/vnd.microsoft.portable-executable','text/html','image/svg+xml','application/wasm']);
 
@@ -44,6 +48,28 @@ let realtimeChannel: { unsubscribe: () => unknown }|null = null;
 let realtimeRefreshTimer:number|undefined;
 let ticketReplySyncTimer:number|undefined;
 let ticketReplySyncInFlight=false;
+
+function portalCacheKey(userId:string):string { return `${PORTAL_CACHE_PREFIX}${userId}`; }
+function clearWorkspaceCache(userId?:string):void {
+  try{if(userId)sessionStorage.removeItem(portalCacheKey(userId));}
+  catch{/* Storage can be unavailable in privacy modes. */}
+}
+function persistWorkspaceCache():void {
+  if(!currentProfile)return;
+  const payload:PortalCache={version:PORTAL_CACHE_VERSION,userId:currentProfile.id,savedAt:Date.now(),profile:currentProfile,tickets,profiles:profilesDirectory,organizer:currentOrganizer,selectedTicketId};
+  try{sessionStorage.setItem(portalCacheKey(currentProfile.id),JSON.stringify(payload));}
+  catch{/* Fresh network data remains the fallback. */}
+}
+function restoreWorkspaceCache(user:User):boolean {
+  try{
+    const raw=sessionStorage.getItem(portalCacheKey(user.id));if(!raw)return false;
+    const cached=JSON.parse(raw) as Partial<PortalCache>;
+    if(cached.version!==PORTAL_CACHE_VERSION||cached.userId!==user.id||!cached.profile||!Array.isArray(cached.tickets)||!Array.isArray(cached.profiles)||typeof cached.savedAt!=='number'||Date.now()-cached.savedAt>PORTAL_CACHE_MAX_AGE){clearWorkspaceCache(user.id);return false;}
+    if(cached.profile.email.toLowerCase()!==(user.email??'').toLowerCase()||!cached.profile.active||cached.profile.removedAt){clearWorkspaceCache(user.id);return false;}
+    currentProfile=cached.profile;tickets=cached.tickets;profilesDirectory=cached.profiles;teamMembers=profilesDirectory.filter((profile)=>profile.role==='team'&&profile.active&&!profile.removedAt);currentOrganizer=cached.organizer??null;selectedTicketId=cached.selectedTicketId??tickets[0]?.id??'';
+    return true;
+  }catch{clearWorkspaceCache(user.id);return false;}
+}
 
 const el = <T extends HTMLElement>(id:string):T => {
   const node=document.getElementById(id);
@@ -73,7 +99,7 @@ function greetingForHour(hour:number):string { if(hour<12)return 'Good morning';
 function updateLocalGreeting():void { const node=document.getElementById('greetingText');if(node)node.textContent=greetingForHour(new Date().getHours()); }
 async function verifyCurrentAccess():Promise<void> {
   if(!supabase||!currentProfile||accessCheckInFlight)return;accessCheckInFlight=true;
-  try{const {data,error}=await supabase.from('profiles').select('active,removed_at').eq('id',currentProfile.id).single();if(error)return;if(!data.active||data.removed_at){await supabase.auth.signOut({scope:'local'});currentProfile=null;finishBootstrap(true);showToast('Your workspace access has been disabled. Contact the administrator.',true);}}
+  try{const {data,error}=await supabase.from('profiles').select('active,removed_at').eq('id',currentProfile.id).single();if(error)return;if(!data.active||data.removed_at){clearWorkspaceCache(currentProfile.id);await supabase.auth.signOut({scope:'local'});currentProfile=null;finishBootstrap(true);showToast('Your workspace access has been disabled. Contact the administrator.',true);}}
   finally{accessCheckInFlight=false;}
 }
 function selectedTicket():Ticket|undefined { return tickets.find((ticket)=>ticket.id===selectedTicketId); }
@@ -178,13 +204,14 @@ async function authenticateWithProvider(provider:Provider,button:HTMLButtonEleme
 
 async function enterAuthenticatedWorkspace(user:User):Promise<void> {
   if(!supabase||workspaceEntryInFlight)return;workspaceEntryInFlight=true;
-  try{const {data,error}=await supabase.from('profiles').select('*').eq('id',user.id).single();
-    if(error||!data){showToast('Your profile is not ready. Contact the administrator.',true);await supabase.auth.signOut();return;}
+  try{const {data,error}=await supabase.from('profiles').select('id,email,full_name,phone,job_title,role,active,frozen_at,removed_at').eq('id',user.id).single();
+    if(error)throw error;
+    if(!data){showToast('Your profile is not ready. Contact the administrator.',true);await supabase.auth.signOut();return;}
     const row=data as DbProfile;
-    if(!row.active){showToast('This account is inactive. Contact the administrator.',true);await supabase.auth.signOut();return;}
+    if(!row.active||row.removed_at){clearWorkspaceCache(user.id);showToast('This account is inactive. Contact the administrator.',true);await supabase.auth.signOut();return;}
     currentProfile={id:row.id,email:row.email,fullName:row.full_name,phone:row.phone??'',jobTitle:row.job_title??'',role:row.role,active:row.active,frozenAt:row.frozen_at,removedAt:row.removed_at};
-    await loadSupabaseData();await syncTicketEmailReplies(false);subscribeToTicketComments();startTicketReplySync();showWorkspace();
-  }catch(error){finishBootstrap(true);showToast(error instanceof Error?error.message:'Unable to load your workspace.',true);}finally{workspaceEntryInFlight=false;}
+    await loadSupabaseData();subscribeToTicketComments();showWorkspace();startTicketReplySync();
+  }catch(error){const showingCached=!el<HTMLElement>('portalApp').classList.contains('hidden');if(!showingCached)finishBootstrap(true);showToast(showingCached?'Showing recently cached workspace data while reconnecting.':error instanceof Error?error.message:'Unable to load your workspace.',true);}finally{workspaceEntryInFlight=false;}
 }
 
 function showWorkspace():void {
@@ -232,6 +259,7 @@ async function loadSupabaseData():Promise<void> {
     documents:documents.filter((document)=>document.ticket_id===row.id).map((document)=>({id:document.id,name:document.file_name,size:formatBytes(document.size_bytes),type:document.document_type??'Client upload',uploadedBy:profileMap.get(document.uploaded_by)?.fullName??'User',uploadedById:document.uploaded_by,createdAt:formatTime(document.created_at),storagePath:document.storage_path})),
   }));
   selectedTicketId=tickets[0]?.id??'';
+  persistWorkspaceCache();
 }
 
 function renderAll():void { renderCounts();renderTickets();renderDetail();renderGlobalDocuments();renderNotifications();renderOrganizer(); }
@@ -537,7 +565,7 @@ function wireEvents():void {
   document.querySelectorAll<HTMLButtonElement>('[data-auth-mode]').forEach((button)=>button.addEventListener('click',()=>setAuthMode(button.dataset.authMode as 'signin'|'signup')));el<HTMLFormElement>('authForm').addEventListener('submit',(event)=>void authenticate(event));
   document.querySelectorAll<HTMLButtonElement>('[data-auth-provider]').forEach((button)=>button.addEventListener('click',()=>void authenticateWithProvider(button.dataset.authProvider as Provider,button)));
   el<HTMLButtonElement>('forgotPassword').addEventListener('click',async()=>{if(!supabase){showToast('The secure workspace is unavailable.',true);return;}const email=el<HTMLInputElement>('authEmail').value.trim();if(!email){showToast('Enter your email address first.',true);return;}const button=el<HTMLButtonElement>('forgotPassword');setButtonLoading(button,true,'Sending reset link…');try{const {error}=await supabase.auth.resetPasswordForEmail(email,{redirectTo:`${window.location.origin}/portal.html`});showToast(error?error.message:'Password reset email sent.',Boolean(error));}finally{setButtonLoading(button,false);}});
-  const signOut=async(button:HTMLButtonElement)=>{setButtonLoading(button,true,'Signing out…');try{if(!supabase)throw new Error('The secure workspace is unavailable.');const {error}=await supabase.auth.signOut();if(error)throw error;currentProfile=null;stopTicketReplySync();realtimeChannel?.unsubscribe();realtimeChannel=null;finishBootstrap(true);showToast('You have signed out securely.');}catch(error){showToast(error instanceof Error?error.message:'Unable to sign out.',true);}finally{setButtonLoading(button,false);}};
+  const signOut=async(button:HTMLButtonElement)=>{setButtonLoading(button,true,'Signing out…');try{if(!supabase)throw new Error('The secure workspace is unavailable.');const userId=currentProfile?.id;const {error}=await supabase.auth.signOut();if(error)throw error;clearWorkspaceCache(userId);currentProfile=null;stopTicketReplySync();realtimeChannel?.unsubscribe();realtimeChannel=null;finishBootstrap(true);showToast('You have signed out securely.');}catch(error){showToast(error instanceof Error?error.message:'Unable to sign out.',true);}finally{setButtonLoading(button,false);}};
   ['signOutButton','sidebarSignOutButton'].forEach((id)=>el<HTMLButtonElement>(id).addEventListener('click',()=>void signOut(el<HTMLButtonElement>(id))));
   const accountMenuButton=el<HTMLButtonElement>('accountMenuButton');const accountMenu=el<HTMLElement>('accountMenu');accountMenuButton.addEventListener('click',(event)=>{event.stopPropagation();const hidden=accountMenu.classList.toggle('hidden');accountMenuButton.setAttribute('aria-expanded',String(!hidden));});accountMenu.addEventListener('click',(event)=>event.stopPropagation());document.addEventListener('click',closeAccountMenu);document.addEventListener('keydown',(event)=>{if(event.key==='Escape')closeAccountMenu();});
   document.querySelectorAll<HTMLButtonElement>('[data-view]').forEach((button)=>button.addEventListener('click',()=>switchView(button.dataset.view as WorkspaceView)));
@@ -562,11 +590,11 @@ function wireEvents():void {
 async function initialize():Promise<void> {
   wireEvents();updateLocalGreeting();window.setInterval(updateLocalGreeting,60000);window.setInterval(()=>void verifyCurrentAccess(),60000);window.addEventListener('focus',()=>{void verifyCurrentAccess();void syncTicketEmailReplies(false);});document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')void syncTicketEmailReplies(false);});const requestedMode=new URLSearchParams(window.location.search).get('mode');setAuthMode(requestedMode==='signup'?'signup':'signin');
   if(!isSupabaseConfigured){el<HTMLElement>('authConfig').classList.remove('hidden');finishBootstrap(true);return;}
-  try{const {data,error}=await supabase!.auth.getSession();if(error)throw error;if(data.session?.user)await enterAuthenticatedWorkspace(data.session.user);else finishBootstrap(true);}catch(error){finishBootstrap(true);showToast(error instanceof Error?error.message:'Unable to restore your session.',true);}
+  try{const {data,error}=await supabase!.auth.getSession();if(error)throw error;if(data.session?.user){if(restoreWorkspaceCache(data.session.user)){showWorkspace();subscribeToTicketComments();startTicketReplySync();}await enterAuthenticatedWorkspace(data.session.user);}else finishBootstrap(true);}catch(error){finishBootstrap(true);showToast(error instanceof Error?error.message:'Unable to restore your session.',true);}
   supabase!.auth.onAuthStateChange((event,session)=>{
     if(event==='PASSWORD_RECOVERY'){finishBootstrap(true);window.setTimeout(()=>el<HTMLDialogElement>('resetPasswordDialog').showModal(),0);return;}
     if(event==='SIGNED_IN'&&session?.user&&!currentProfile){organizerGatePending=true;window.setTimeout(()=>void enterAuthenticatedWorkspace(session.user),0);}
-    if(event==='SIGNED_OUT'){currentProfile=null;stopTicketReplySync();realtimeChannel?.unsubscribe();realtimeChannel=null;finishBootstrap(true);}
+    if(event==='SIGNED_OUT'){clearWorkspaceCache(currentProfile?.id);currentProfile=null;stopTicketReplySync();realtimeChannel?.unsubscribe();realtimeChannel=null;finishBootstrap(true);}
   });
 }
 
