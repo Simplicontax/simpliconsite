@@ -7,7 +7,36 @@
       "maxDuration": 60
     }
   },
+  "redirects": [
+    { "source": "/index.html", "destination": "/", "permanent": true },
+    { "source": "/about.html", "destination": "/about", "permanent": true },
+    { "source": "/contact.html", "destination": "/contact", "permanent": true },
+    { "source": "/pricing.html", "destination": "/pricing", "permanent": true },
+    { "source": "/services.html", "destination": "/services", "permanent": true },
+    { "source": "/resources.html", "destination": "/resources", "permanent": true },
+    { "source": "/refund-status.html", "destination": "/refund-status", "permanent": true },
+    { "source": "/us-tax-filing.html", "destination": "/us-tax-filing", "permanent": true },
+    { "source": "/india-tax-filing.html", "destination": "/india-tax-filing", "permanent": true },
+    { "source": "/portal.html", "destination": "/portal", "permanent": true }
+  ],
+  "rewrites": [
+    { "source": "/about", "destination": "/about.html" },
+    { "source": "/contact", "destination": "/contact.html" },
+    { "source": "/pricing", "destination": "/pricing.html" },
+    { "source": "/services", "destination": "/services.html" },
+    { "source": "/resources", "destination": "/resources.html" },
+    { "source": "/refund-status", "destination": "/refund-status.html" },
+    { "source": "/us-tax-filing", "destination": "/us-tax-filing.html" },
+    { "source": "/india-tax-filing", "destination": "/india-tax-filing.html" },
+    { "source": "/portal", "destination": "/portal.html" }
+  ],
   "headers": [
+    {
+      "source": "/portal",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store, max-age=0" }
+      ]
+    },
     {
       "source": "/portal.html",
       "headers": [
