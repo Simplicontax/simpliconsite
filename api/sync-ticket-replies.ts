@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import { createClient } from '@supabase/supabase-js';
+import { createHash } from 'node:crypto';
 
 function replyText(value: string): string {
   const normalized = value.replace(/\r/g, '').replace(/\u00a0/g, ' ');
@@ -15,6 +16,11 @@ function replyText(value: string): string {
 
 function missingMessageIdColumn(error: { code?: string; message?: string } | null): boolean {
   return Boolean(error && (error.code === 'PGRST204' || error.code === '42703' || /email_message_id/i.test(error.message ?? '')));
+}
+
+function emailCommentId(messageId: string): string {
+  const hex = createHash('sha256').update(messageId).digest('hex').slice(0, 32);
+  return [hex.slice(0, 8), hex.slice(8, 12), hex.slice(12, 16), hex.slice(16, 20), hex.slice(20)].join('-');
 }
 
 async function resolveReplyMailbox(client: ImapFlow): Promise<string> {
@@ -76,18 +82,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const body = replyText(parsed.text ?? '');
         if (!body) { skipped.emptyBody += 1; await client.messageFlagsAdd(message.uid, ['\\Seen'], { uid: true }); continue; }
         const sourceMessageId = parsed.messageId?.trim().toLowerCase() || `imap:${message.uid}`;
-        let { error } = await admin.from('ticket_comments').insert({ ticket_id: ticket.id, author_id: profile.id, body, is_system: false, email_message_id: sourceMessageId });
+        const commentId = emailCommentId(sourceMessageId);
+        let { error } = await admin.from('ticket_comments').insert({ id: commentId, ticket_id: ticket.id, author_id: profile.id, body, is_system: false, email_message_id: sourceMessageId });
         let inserted = !error;
         if (missingMessageIdColumn(error)) {
-          const { data: duplicate, error: lookupError } = await admin.from('ticket_comments').select('id').eq('ticket_id', ticket.id).eq('author_id', profile.id).eq('body', body).limit(1).maybeSingle();
-          if (lookupError) throw lookupError;
-          if (!duplicate) {
-            const fallback = await admin.from('ticket_comments').insert({ ticket_id: ticket.id, author_id: profile.id, body, is_system: false });
-            error = fallback.error;
-            inserted = !error;
-          } else {
-            error = null;
-          }
+          const fallback = await admin.from('ticket_comments').insert({ id: commentId, ticket_id: ticket.id, author_id: profile.id, body, is_system: false });
+          error = fallback.error;
+          inserted = !error;
         }
         if (error && error.code !== '23505') throw error;
         if (error?.code === '23505') skipped.duplicate += 1;
