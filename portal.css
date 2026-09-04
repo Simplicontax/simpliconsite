@@ -564,3 +564,14 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .auth-card,.auth-card>*{min-width:0}.auth-card{overflow-wrap:anywhere}.auth-config code{overflow-wrap:anywhere;word-break:break-word}
 @media(max-width:680px){.resource-table-card{padding:1.2rem}.resource-table-row{grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:.75rem}.resource-table-row strong{min-width:0;overflow-wrap:anywhere}.resource-table-row select{grid-column:1/-1;grid-row:2;width:100%;max-width:none}.resource-table-row .button-small{grid-column:2;grid-row:1;min-width:48px;white-space:nowrap}.document-ticket-add{width:29px;height:29px}}
 @media(max-width:420px){.auth-header-inner{gap:.45rem}.auth-menu-toggle{width:36px;height:36px}.auth-header-actions{grid-template-columns:repeat(2,70px);gap:.35rem}.auth-header-actions>a,.auth-header-actions>a:first-child,.auth-header-actions>a:first-child.active,.auth-header-actions .signup{min-height:38px;padding:.5rem .25rem;font-size:.64rem}.auth-panel{padding:.75rem}.auth-card{width:100%;padding:1.15rem}.auth-card h2{font-size:1.55rem}.auth-tabs button{padding:.58rem .35rem;font-size:.66rem}}
+@media(max-width:900px){
+  .auth-panel{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:.85rem;overflow-y:auto}
+  .auth-card{flex:0 0 auto}
+  .auth-footer{width:min(440px,100%);margin:0 0 1rem;padding:0 .5rem;align-self:center;flex:0 0 auto;line-height:1.45;text-align:center}
+}
+
+@media(max-width:560px){
+  .auth-panel{gap:.7rem}
+  .auth-footer{margin-bottom:.75rem;padding-inline:.25rem}
+  .auth-shell[data-auth-mode="signup"] .social-auth{margin-bottom:.2rem}
+}
