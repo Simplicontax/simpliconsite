@@ -31,3 +31,12 @@
 .regional-service-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1rem;margin-top:2rem}.regional-service-grid article{padding:1.6rem;border:1px solid var(--line);border-radius:18px;background:#fff;box-shadow:0 14px 34px rgba(18,65,88,.06)}.regional-service-grid article>span{display:grid;width:38px;height:38px;place-items:center;border-radius:11px;color:var(--blue);background:var(--sky);font-size:.65rem;font-weight:800}.regional-service-grid h3{margin:1.2rem 0 .6rem;font-family:"Manrope",sans-serif;font-size:1.02rem}.regional-service-grid p{margin:0;color:var(--muted);font-size:.76rem;line-height:1.65}.regional-process{display:grid;grid-template-columns:.9fr 1.1fr;align-items:start;gap:4rem}.regional-process ol{display:grid;gap:.7rem;margin:0;padding:0;list-style:none}.regional-process li{display:grid;grid-template-columns:auto 1fr;gap:.9rem;padding:1rem;border:1px solid var(--line);border-radius:14px;background:#fff}.regional-process li>b{display:grid;width:34px;height:34px;place-items:center;border-radius:9px;color:#fff;background:var(--green-dark)}.regional-process strong{font-size:.78rem}.regional-process p{margin:.25rem 0 0;color:var(--muted);font-size:.7rem;line-height:1.55}.regional-faq{max-width:860px}.regional-faq details{padding:1rem 0;border-bottom:1px solid var(--line)}.regional-faq summary{cursor:pointer;color:var(--ink);font-family:"Manrope",sans-serif;font-size:.9rem;font-weight:700}.regional-faq details p{margin:.7rem 0 0;color:var(--muted);font-size:.76rem;line-height:1.65}
 @media(max-width:1000px){.regional-service-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.regional-process{grid-template-columns:1fr;gap:2rem}}
 @media(max-width:620px){.regional-service-grid{grid-template-columns:1fr}.regional-service-grid article{padding:1.25rem}}
+@media(max-width:680px){
+  .resource-table-card{min-width:0;padding:1.2rem}
+  .resource-table-row{width:100%;min-width:0;grid-template-columns:minmax(0,1fr) auto}
+  .resource-table-row .department-picker{grid-column:1/-1;grid-row:2;width:100%;min-width:0;max-width:100%}
+  .department-picker-trigger{min-width:0}
+  .department-picker-trigger span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .department-picker-menu{max-width:100%;overflow-x:hidden}
+  .department-picker-option{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+}
