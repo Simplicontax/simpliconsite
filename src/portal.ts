@@ -123,8 +123,9 @@ async function syncTicketEmailReplies(announce=false):Promise<boolean> {
     const {data:{session}}=await supabase.auth.getSession();if(!session)return false;
     const response=await fetch('/api/sync-ticket-replies',{method:'POST',headers:{Authorization:'Bearer '+session.access_token}});
     if(!response.ok){console.error('Ticket reply sync failed:',response.status,await response.text());return false;}
-    const result=await response.json() as {imported?:number};
+    const result=await response.json() as {imported?:number;scanned?:number;skipped?:Record<string,number>};
     if(result.imported){await refreshTicketData();if(announce)showToast(String(result.imported)+' email '+(result.imported===1?'reply was':'replies were')+' added to ticket chat.');}
+    else if(result.scanned)console.info('Ticket reply sync found no importable reply.',result);
     return true;
   }catch(error){console.error('Ticket reply sync failed:',error);return false;}
   finally{ticketReplySyncInFlight=false;}

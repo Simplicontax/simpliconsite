@@ -24,7 +24,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const imapUser = process.env.IMAP_USER ?? process.env.SMTP_USER;
   const imapPass = process.env.IMAP_PASS ?? process.env.SMTP_PASS;
   const authorization = req.headers.authorization;
-  if (!supabaseUrl || !serviceRoleKey || !imapUser || !imapPass || !authorization) return res.status(503).json({ error: 'Reply sync is not configured' });
+  const missingConfig = [!supabaseUrl && 'SUPABASE_URL', !serviceRoleKey && 'SUPABASE_SERVICE_ROLE_KEY', !imapUser && 'IMAP_USER or SMTP_USER', !imapPass && 'IMAP_PASS or SMTP_PASS'].filter(Boolean);
+  if (!supabaseUrl || !serviceRoleKey || !imapUser || !imapPass) return res.status(503).json({ error: 'Reply sync is not configured', missing: missingConfig });
+  if (!authorization) return res.status(401).json({ error: 'Missing authorization' });
   const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
   const { data: { user } } = await admin.auth.getUser(authorization.replace(/^Bearer\s+/i, ''));
   if (!user) return res.status(401).json({ error: 'Invalid session' });
@@ -35,25 +37,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const defaultImapHost = smtpHost.includes('titan') ? 'imap.titan.email' : 'imap.secureserver.net';
   const client = new ImapFlow({ host: process.env.IMAP_HOST ?? defaultImapHost, port: Number(process.env.IMAP_PORT ?? '993'), secure: true, auth: { user: imapUser, pass: imapPass } });
   let imported = 0;
+  let scanned = 0;
+  const skipped = { missingEnvelope: 0, missingMetadata: 0, noTicket: 0, noProfile: 0, notParticipant: 0, emptyBody: 0, duplicate: 0 };
   try {
     await client.connect();
     const lock = await client.getMailboxLock(process.env.TICKET_REPLY_IMAP_FOLDER ?? 'Ticket Replies');
     try {
       for await (const message of client.fetch({ or: [{ seen: false }, { since: new Date(Date.now() - 86400000) }] }, { uid: true, envelope: true, source: true })) {
+        scanned += 1;
         const envelope = message.envelope;
-        if (!envelope) continue;
+        if (!envelope) { skipped.missingEnvelope += 1; continue; }
         const subject = envelope.subject ?? '';
         const ticketNumber = subject.match(/\b[A-Z]{2,}-\d+\b/i)?.[0];
         const sender = envelope.from?.[0]?.address?.toLowerCase();
-        if (!ticketNumber || !sender || !message.source) continue;
-        const [{ data: ticket }, { data: profile }] = await Promise.all([
-          admin.from('tickets').select('id,requester_id,assigned_to').eq('ticket_number', ticketNumber).maybeSingle(),
-          admin.from('profiles').select('id,email,active,role').eq('email', sender).eq('active', true).maybeSingle(),
+        if (!ticketNumber || !sender || !message.source) { skipped.missingMetadata += 1; continue; }
+        const [{ data: ticket, error: ticketError }, { data: profile, error: profileError }] = await Promise.all([
+          admin.from('tickets').select('id,requester_id,assigned_to').ilike('ticket_number', ticketNumber).maybeSingle(),
+          admin.from('profiles').select('id,email,active,role').ilike('email', sender).eq('active', true).maybeSingle(),
         ]);
-        if (!ticket || !profile || (profile.role !== 'admin' && ticket.requester_id !== profile.id && ticket.assigned_to !== profile.id)) continue;
+        if (ticketError) throw ticketError;if(profileError)throw profileError;
+        if (!ticket) { skipped.noTicket += 1; continue; }
+        if (!profile) { skipped.noProfile += 1; continue; }
+        if (profile.role !== 'admin' && ticket.requester_id !== profile.id && ticket.assigned_to !== profile.id) { skipped.notParticipant += 1; continue; }
         const parsed = await simpleParser(message.source);
         const body = replyText(parsed.text ?? '');
-        if (!body) { await client.messageFlagsAdd(message.uid, ['\\Seen']); continue; }
+        if (!body) { skipped.emptyBody += 1; await client.messageFlagsAdd(message.uid, ['\\Seen'], { uid: true }); continue; }
         const sourceMessageId = parsed.messageId?.trim().toLowerCase() || `imap:${message.uid}`;
         let { error } = await admin.from('ticket_comments').insert({ ticket_id: ticket.id, author_id: profile.id, body, is_system: false, email_message_id: sourceMessageId });
         let inserted = !error;
@@ -69,7 +77,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           }
         }
         if (error && error.code !== '23505') throw error;
-        await client.messageFlagsAdd(message.uid, ['\\Seen']);
+        if (error?.code === '23505') skipped.duplicate += 1;
+        await client.messageFlagsAdd(message.uid, ['\\Seen'], { uid: true });
         if (inserted) imported += 1;
       }
     } finally { lock.release(); }
@@ -77,5 +86,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.error('Ticket email reply sync failed', error instanceof Error ? error.message : error);
     return res.status(500).json({ error: 'Could not sync ticket replies' });
   } finally { await client.logout().catch((): void => undefined); }
-  return res.status(200).json({ imported });
+  console.info('Ticket reply sync completed', { scanned, imported, skipped });
+  return res.status(200).json({ imported, scanned, skipped });
 }
