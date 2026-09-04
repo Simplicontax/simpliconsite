@@ -160,9 +160,9 @@ function startTicketReplySync():void {
     if(currentProfile?.role!=='admin'||document.visibilityState!=='visible')return;
     void syncTicketEmailReplies(false);
   };
-  console.warn('Ticket reply polling started:',{role:currentProfile?.role??'none',intervalMs:2000});
+  console.warn('Ticket reply polling started:',{role:currentProfile?.role??'none',intervalMs:15000});
   run();
-  ticketReplySyncTimer=window.setInterval(run,2000);
+  ticketReplySyncTimer=window.setInterval(run,15000);
 }
 
 function stopTicketReplySync():void { if(ticketReplySyncTimer)window.clearInterval(ticketReplySyncTimer);ticketReplySyncTimer=undefined; }
