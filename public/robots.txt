@@ -1,4 +1,5 @@
 User-agent: *
 Allow: /
+Disallow: /portal.html
 
 Sitemap: https://www.simplicontax.com/sitemap.xml
