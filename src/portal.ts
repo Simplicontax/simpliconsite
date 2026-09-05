@@ -257,7 +257,7 @@ function showWorkspace():void {
   el<HTMLElement>('profileRole').textContent=`${roleLabel(currentProfile.role)} workspace`;
   el<HTMLElement>('greetingName').textContent=currentProfile.fullName.split(' ')[0];updateLocalGreeting();
   el<HTMLElement>('topbarProfileName').textContent=currentProfile.fullName;el<HTMLElement>('topbarProfileRole').textContent=roleLabel(currentProfile.role);el<HTMLElement>('accountMenuEmail').textContent=currentProfile.email;
-  el<HTMLElement>('topbarRole').textContent=`${roleLabel(currentProfile.role)} access`;el<HTMLElement>('overviewRole').textContent=roleLabel(currentProfile.role);
+  el<HTMLElement>('topbarRole').textContent=`${roleLabel(currentProfile.role)} access`
   document.querySelectorAll<HTMLElement>('.sidebar-profile .avatar,#topbarAvatar').forEach((avatar)=>avatar.textContent=initials(currentProfile!.fullName));
   if(!tickets.some((ticket)=>ticket.id===selectedTicketId))selectedTicketId=tickets[0]?.id??'';
   renderAssigneeOptions();renderUserDirectory();renderAll();switchView('tickets');showOrganizerGate();
@@ -301,7 +301,7 @@ function renderCounts():void {
   const complete=tickets.filter((ticket)=>isCompleted(ticket.status)).length;
   const documents=tickets.reduce((sum,ticket)=>sum+ticket.documents.length,0);
   el<HTMLElement>('ticketNavCount').textContent=String(tickets.length);el<HTMLElement>('documentNavCount').textContent=String(documents);
-  el<HTMLElement>('overviewTotalCount').textContent=String(tickets.length);el<HTMLElement>('overviewActiveCount').textContent=String(active);el<HTMLElement>('overviewDocumentCount').textContent=String(documents);
+
   const filterButtons=document.querySelectorAll<HTMLButtonElement>('[data-filter]');
   [tickets.length,active,complete].forEach((count,index)=>{const badge=filterButtons[index]?.querySelector('span');if(badge)badge.textContent=String(count);});
 }

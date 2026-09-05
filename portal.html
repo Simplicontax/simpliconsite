@@ -102,7 +102,7 @@
                 <div class="topbar-actions">
 
 
-                    <button class="icon-button" id="notificationsButton" aria-label="Notifications"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4"/></svg><span id="notificationDot" aria-hidden="true"></span></button>
+                    <button type="button" class="organizer-header-action" data-organizer-download aria-label="Download tax organizer">Download organizer <span>↓</span></button><button class="icon-button" id="notificationsButton" aria-label="Notifications"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4"/></svg><span id="notificationDot" aria-hidden="true"></span></button>
                     <button class="primary-action client-only" id="newTicketButton">+ New ticket</button>
                     <div class="account-menu-wrap">
                         <button class="account-menu-trigger" id="accountMenuButton" aria-label="Open account menu" aria-expanded="false"><span class="avatar" id="topbarAvatar">--</span><span class="account-menu-copy"><strong id="topbarProfileName">Account</strong><small id="topbarProfileRole">Authenticated</small></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 10 4 4 4-4"/></svg></button>
@@ -117,22 +117,7 @@
                 </div>
             </header>
 
-            <section class="workspace-banner">
-                <div>
-                    <span class="banner-icon">✓</span>
-                    <div><strong>Your workspace is secure</strong><p>Files are validated before they are added to a ticket.</p></div>
-                </div>
-                <button type="button" data-organizer-download>Download tax organizer <span>↓</span></button>
-            </section>
-
-            <section class="workspace-overview" aria-label="Workspace overview">
-                <article><span class="overview-icon blue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14a2 2 0 0 1 2 2v4a2.5 2.5 0 0 0 0 4v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4a2.5 2.5 0 0 0 0-4V6a2 2 0 0 1 2-2Z"/></svg></span><div><small>Total requests</small><strong id="overviewTotalCount">0</strong><p>Available to your role</p></div></article>
-                <article><span class="overview-icon amber"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><div><small>Active work</small><strong id="overviewActiveCount">0</strong><p>Currently in progress</p></div></article>
-                <article><span class="overview-icon green"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg></span><div><small>Secure documents</small><strong id="overviewDocumentCount">0</strong><p>Across accessible tickets</p></div></article>
-                <article><span class="overview-icon violet"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.5 2.7 8 7 10 4.3-2 7-5.5 7-10V6z"/><path d="m9 12 2 2 4-4"/></svg></span><div><small>Access level</small><strong class="overview-role" id="overviewRole">Account</strong><p>Securely verified</p></div></article>
-            </section>
-
-            <section class="portal-content workspace-view" id="ticketsView">
+<section class="portal-content workspace-view" id="ticketsView">
                 <div class="ticket-column">
                     <div class="section-toolbar">
                         <div><h2>Tickets <button class="document-ticket-add admin-only" id="newManualTicketButton" type="button" aria-label="Create a ticket for a customer" title="Create a ticket for a customer">+</button></h2><p>Track filings, requests and document reviews.</p></div>

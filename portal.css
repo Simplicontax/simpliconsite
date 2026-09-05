@@ -579,3 +579,6 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   .auth-footer{margin-bottom:.75rem;padding-inline:.25rem}
   .auth-shell[data-auth-mode="signup"] .social-auth{margin-bottom:.2rem}
 }
+
+/* Header organizer download */
+.organizer-header-action{display:inline-flex;align-items:center;gap:.45rem;min-height:42px;padding:.7rem .8rem;border:1px solid #cbdde2;border-radius:9px;color:#175d78;background:#fff;box-shadow:0 1px 2px rgba(14,48,67,.03);cursor:pointer;font-size:.66rem;font-weight:800;white-space:nowrap}.organizer-header-action:hover{border-color:#9fc0cd;background:#f7fbfc}.organizer-header-action span{font-size:.9rem;line-height:1}@media(max-width:520px){.organizer-header-action{display:grid;width:40px;min-width:40px;height:40px;min-height:40px;padding:0;place-items:center;font-size:0}.organizer-header-action span{font-size:1rem}}
