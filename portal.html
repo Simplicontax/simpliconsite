@@ -220,7 +220,7 @@
 
         <dialog class="ticket-dialog request-dialog" id="newTicketDialog">
         <form method="dialog" id="newTicketForm">
-            <div class="dialog-heading"><div><span id="newTicketKicker">New request</span><h2 id="newTicketDialogTitle">Tell us about this filing</h2></div><button value="cancel" aria-label="Close">×</button></div>
+            <div class="dialog-heading"><div><span id="newTicketKicker">New request</span><h2 id="newTicketDialogTitle">Tell us about this filing</h2></div><button type="button" data-dialog-close aria-label="Close">×</button></div>
             <p class="dialog-intro">A few details help us send your request to the right person and start with the right questions.</p>
             <div class="manual-ticket-contact admin-only" id="manualTicketContact"><label>Customer name<input id="manualTicketName" placeholder="Customer name"></label><label>Customer email<input id="manualTicketEmail" type="email" placeholder="customer@example.com"></label><p>The request will appear in the customer account when they register with this email.</p></div>
             <label>What would you like help with?<input id="newTicketTitle" required placeholder="e.g. 2025 individual tax return"></label>
@@ -229,22 +229,22 @@
             <fieldset class="request-scope"><legend>What applies to this request?</legend><div><label><input type="checkbox" name="newTicketScope" value="Employment income"> Employment income</label><label><input type="checkbox" name="newTicketScope" value="Business or self-employment"> Business or self-employment</label><label><input type="checkbox" name="newTicketScope" value="Investments or capital gains"> Investments or capital gains</label><label><input type="checkbox" name="newTicketScope" value="Property or rental income"> Property or rental income</label><label><input type="checkbox" name="newTicketScope" value="Foreign income or assets"> Foreign income or assets</label></div></fieldset>
             <div class="dialog-grid"><label>Important deadline<input id="newTicketDeadline" type="date"></label><label>Preferred contact method<select id="newTicketContactMethod"><option>Portal messages</option><option>Email</option><option>Phone call</option></select></label></div>
             <label>Anything else we should know?<textarea id="newTicketDescription" required placeholder="Share the situation, deadlines, and questions you want us to address."></textarea></label>
-            <div class="dialog-actions"><button value="cancel" class="secondary">Cancel</button><button value="default" type="submit">Create request</button></div>
+            <div class="dialog-actions"><button type="button" data-dialog-close class="secondary">Cancel</button><button value="default" type="submit">Create request</button></div>
         </form>
     </dialog>
 
     <dialog class="ticket-dialog team-dialog" id="teamDialog">
         <form method="dialog" id="teamInviteForm">
-            <div class="dialog-heading"><div><span>Admin access only</span><h2>Invite a team member</h2></div><button value="cancel" aria-label="Close">×</button></div>
+            <div class="dialog-heading"><div><span>Admin access only</span><h2>Invite a team member</h2></div><button type="button" data-dialog-close aria-label="Close">×</button></div>
             <p class="dialog-intro">Collect the team member’s details. They will receive a secure invitation to create their own password.</p>
             <div class="dialog-grid"><label>Full name<input id="teamFullName" required placeholder="Full legal name"></label><label>Work email<input id="teamEmail" type="email" required placeholder="name@simplicontax.com"></label></div>
             <div class="dialog-grid"><label>Phone<input id="teamPhone" required placeholder="Country code and number"></label><label>Job title<input id="teamJobTitle" required placeholder="Tax Specialist"></label></div>
-            <div class="dialog-actions"><button value="cancel" class="secondary">Cancel</button><button value="default" type="submit">Send secure invitation</button></div>
+            <div class="dialog-actions"><button type="button" data-dialog-close class="secondary">Cancel</button><button value="default" type="submit">Send secure invitation</button></div>
         </form>
     </dialog>
 
     <dialog class="ticket-dialog profile-dialog" id="profileDialog">
-        <form method="dialog" id="profileForm"><div class="dialog-heading"><div><span>Your account</span><h2>Profile details</h2></div><button value="cancel" aria-label="Close">×</button></div><label>Full name<input id="profileFullName" required></label><label>Email address<input id="profileEmail" type="email" readonly></label><div class="dialog-grid"><label>Phone<input id="profilePhone" placeholder="Country code and number"></label><label>Workspace role<input id="profileRoleField" readonly></label></div><div class="dialog-actions"><button value="cancel" class="secondary">Cancel</button><button value="default" type="submit">Save profile</button></div></form>
+        <form method="dialog" id="profileForm"><div class="dialog-heading"><div><span>Your account</span><h2>Profile details</h2></div><button type="button" data-dialog-close aria-label="Close">×</button></div><label>Full name<input id="profileFullName" required></label><label>Email address<input id="profileEmail" type="email" readonly></label><div class="dialog-grid"><label>Phone<input id="profilePhone" placeholder="Country code and number"></label><label>Workspace role<input id="profileRoleField" readonly></label></div><div class="dialog-actions"><button type="button" data-dialog-close class="secondary">Cancel</button><button value="default" type="submit">Save profile</button></div></form>
     </dialog>
 
     <dialog class="ticket-dialog notification-dialog" id="notificationDialog">

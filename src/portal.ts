@@ -573,6 +573,7 @@ async function updatePassword(event:SubmitEvent):Promise<void> {
 }
 
 function wireEvents():void {
+  document.querySelectorAll<HTMLButtonElement>('[data-dialog-close]').forEach((button)=>button.addEventListener('click',()=>button.closest<HTMLDialogElement>('dialog')?.close('cancel')));
   const authMenu=el<HTMLButtonElement>('authMenuToggle');const authNav=el<HTMLElement>('authSiteNav');
   authMenu.addEventListener('click',()=>{const open=authNav.classList.toggle('open');authMenu.setAttribute('aria-expanded',String(open));});authNav.querySelectorAll('a').forEach((link)=>link.addEventListener('click',()=>{authNav.classList.remove('open');authMenu.setAttribute('aria-expanded','false');}));
   document.querySelectorAll<HTMLButtonElement>('[data-auth-mode]').forEach((button)=>button.addEventListener('click',()=>setAuthMode(button.dataset.authMode as 'signin'|'signup')));el<HTMLFormElement>('authForm').addEventListener('submit',(event)=>void authenticate(event));
