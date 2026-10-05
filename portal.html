@@ -97,7 +97,7 @@
                 <button class="mobile-menu" id="mobileMenu" aria-label="Open navigation">☰</button>
                 <div class="topbar-heading">
                     <div class="topbar-context"><span class="eyebrow">Secure filing workspace</span><span class="access-pill" id="topbarRole">Account access</span></div>
-                    <h1><span id="greetingText">Welcome</span><span id="greetingName"></span></h1>
+                    <h1><span id="greetingText">Welcome</span> <span id="greetingName"></span></h1>
                 </div>
                 <div class="topbar-actions">
 
@@ -128,6 +128,7 @@
                         </div>
                     </div>
                     <div class="reply-sync-bar admin-only hidden" id="replySyncBar"><span id="replySyncStatus">Checking mailbox…</span><button type="button" id="replySyncNow" title="Check mailbox now">↻ Sync now</button></div>
+                    <section class="ticket-drafts hidden" id="ticketDrafts" aria-label="Saved questionnaire drafts"></section>
                     <div class="ticket-list" id="ticketList"></div>
                 </div>
 
@@ -258,6 +259,7 @@
             <div class="intake-dialog-heading"><div><span class="eyebrow" id="intakeSection">Tax organizer</span><h2 id="intakeQuestion">Let’s start with your filing</h2><p id="intakeGuidance">One question at a time. You can go back whenever you need to.</p></div><button type="button" id="closeIntakeButton" aria-label="Close">×</button></div>
             <div class="intake-progress"><div class="intake-progress-track"><i id="intakeProgressBar"></i></div><span id="intakeProgressText">Question 1</span></div>
             <section class="intake-slide" id="intakeSlide" aria-live="polite"></section>
+            <p class="intake-save-status" id="intakeSaveStatus" role="status">Progress saves as you answer.</p>
             <div class="intake-actions"><button type="button" class="secondary" id="intakeBackButton">Back</button><button type="button" id="intakeSkipButton">Skip for now</button><button type="button" id="intakeNextButton">Continue</button><button type="submit" id="intakeSubmitButton" class="hidden">Save questionnaire</button></div>
         </form>
     </dialog>

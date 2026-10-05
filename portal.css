@@ -89,6 +89,15 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .reply-sync-bar button { flex-shrink: 0; padding: .28rem .6rem; border: 1px solid #c8dae2; border-radius: 7px; color: var(--blue); background: #fff; cursor: pointer; font-size: .6rem; font-weight: 700; }
 .reply-sync-bar button:hover { background: #eef5f8; }
 .ticket-list { display: flex; max-height: calc(100vh - 260px); flex-direction: column; overflow-y: auto; }
+.ticket-drafts{flex:0 0 auto;margin:0 0 .8rem;padding:.8rem;border:1px solid #dbe7df;border-radius:12px;background:#f5faf6}
+.ticket-drafts>h3{margin:0 0 .55rem;color:#345e48;font-size:.69rem}
+.intake-draft-card{display:flex;align-items:center;justify-content:space-between;gap:.7rem;width:100%;padding:.75rem;border:1px solid #d2e2d7;border-radius:9px;background:#fff;color:#284c5b;text-align:left;cursor:pointer}
+.intake-draft-card:hover{border-color:#34865b;background:#fcfefc}
+.intake-draft-copy{display:grid;min-width:0;gap:.3rem}
+.intake-draft-copy strong{font-size:.7rem;overflow-wrap:anywhere}
+.intake-draft-copy>span{font-size:.65rem;color:#567583}
+.intake-draft-copy small{font-size:.57rem;color:#728991}
+.intake-draft-resume{flex-shrink:0;color:#26744e;font-size:.65rem;font-weight:800}
 .ticket-item { display: grid; grid-template-columns: auto 1fr auto; gap: .9rem; padding: 1.1rem 1.3rem; border: 0; border-bottom: 1px solid #edf1f4; background: #fff; cursor: pointer; text-align: left; transition: 150ms ease; }
 .ticket-item:hover { background: #f8fbfb; }
 .ticket-item.active { background: #edf8f5; box-shadow: inset 3px 0 var(--teal); }
@@ -635,6 +644,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .intake-entry-list button{width:28px;height:28px;flex:0 0 28px;border:0;border-radius:7px;color:#8a4750;background:#fff0f1;cursor:pointer;font-size:1rem}
 .intake-empty{margin:0;color:#81969e;font-size:.64rem}
 .intake-actions{position:sticky;bottom:0;display:flex;align-items:center;gap:.6rem;margin:0;padding:1rem 1.8rem 1.2rem;border-top:1px solid #e5ecee;background:#fff}
+.intake-save-status{margin:0;padding:0 1.8rem .8rem;color:#557482;font-size:.65rem;line-height:1.5}
 .intake-actions button{min-height:42px;padding:.68rem .95rem;border:0;border-radius:8px;color:#fff;background:#176483;cursor:pointer;font-size:.67rem;font-weight:800}
 .intake-actions button:hover{background:#115571}
 .intake-actions .secondary{margin-right:auto;border:1px solid #cbdce0;color:#496a77;background:#fff}
@@ -653,6 +663,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
  .intake-choice{min-height:52px;justify-content:flex-start;text-align:left}
  .intake-follow-up,.intake-collection-form{grid-template-columns:1fr}
  .intake-actions{padding:.9rem 1rem 1rem}
+ .intake-save-status{padding:0 1rem .7rem}
  .intake-actions button{flex:1}
 }
 
