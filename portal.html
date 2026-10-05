@@ -75,8 +75,8 @@
                 <button class="portal-nav-item admin-only" data-view="users" id="usersNavButton">
                     <span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3.5 19c.4-3.2 2.2-5 5.5-5s5.1 1.8 5.5 5M16 7.5a2.5 2.5 0 0 1 0 5M16.5 14c2.5.3 3.8 1.9 4 4"/></svg></span><span>Users</span>
                 </button>
-                <button class="portal-nav-item" data-view="organizer">
-                    <span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7.5 10.5 12 15l4.5-4.5"/><path d="M5 19h14"/></svg></span><span>Tax organizer</span>
+                <button class="portal-nav-item" data-view="intake">
+                    <span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7.5 10.5 12 15l4.5-4.5"/><path d="M5 19h14"/></svg></span><span>Getting started</span>
                 </button>
             </nav>
             <div class="sidebar-support">
@@ -102,7 +102,7 @@
                 <div class="topbar-actions">
 
 
-                    <button type="button" class="organizer-header-action" data-organizer-download aria-label="Download tax organizer">Download organizer <span>↓</span></button><button class="icon-button" id="notificationsButton" aria-label="Notifications"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4"/></svg><span id="notificationDot" aria-hidden="true"></span></button>
+                    <button class="icon-button" id="notificationsButton" aria-label="Notifications"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4"/></svg><span id="notificationDot" aria-hidden="true"></span></button>
                     <button class="primary-action client-only" id="newTicketButton">+ New ticket</button>
                     <div class="account-menu-wrap">
                         <button class="account-menu-trigger" id="accountMenuButton" aria-label="Open account menu" aria-expanded="false"><span class="avatar" id="topbarAvatar">--</span><span class="account-menu-copy"><strong id="topbarProfileName">Account</strong><small id="topbarProfileRole">Authenticated</small></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 10 4 4 4-4"/></svg></button>
@@ -164,15 +164,7 @@
                                 </select>
                                 <button id="assignButton">Assign</button>
                             </div>
-                        </div>
-
-                        <div class="organizer-card client-only">
-                            <div class="organizer-icon">XL</div>
-                            <div><strong>Current Tax Organizer</strong><p>Download, complete and upload it back to this ticket.</p></div>
-                            <button type="button" data-organizer-download aria-label="Download the tax organizer">↓</button>
-                        </div>
-
-                        <div class="detail-tabs" role="tablist">
+                        </div><div class="detail-tabs" role="tablist">
                             <button class="active" data-detail-tab="activity">Activity</button>
                             <button data-detail-tab="documents">Documents <span id="documentCount">0</span></button>
                         </div>
@@ -212,13 +204,11 @@
                 <div class="workspace-view-heading"><div><span class="eyebrow">Document center</span><h2>Documents</h2><p>Every file you are authorized to access, grouped with its ticket.</p></div><label class="workspace-search">Search documents<input id="documentSearch" type="search" placeholder="File, ticket, type or client"></label></div><div class="retention-notice"><span>30</span><div><strong>Document retention</strong><p>Ticket documents are securely removed 30 days after the ticket is completed. Reopening a completed ticket pauses the retention countdown.</p></div></div>
                 <div class="global-document-list" id="globalDocumentList"></div>
             </section>
-
-            <section class="workspace-view hidden" id="organizerView">
-                <div class="workspace-view-heading"><div><span class="eyebrow">Tax organizer</span><h2>Collect the details once</h2><p>Download the Excel organizer, complete it, then upload it to the correct ticket.</p></div><div class="organizer-admin-action admin-only"><input type="file" id="organizerFileInput" accept=".xlsx,.xls" hidden><button class="primary-action" id="replaceOrganizerButton">Replace organizer</button></div></div>
-                <div class="organizer-workspace"><div class="organizer-download-card"><span>XL</span><div><small id="organizerUpdatedLabel">Current organizer</small><h3 id="organizerFileName">Tax organizer not uploaded</h3><p>Income, deductions, dependants, investments, businesses and foreign reporting details.</p><div class="organizer-file-meta"><span id="organizerFileSize">—</span><span>Private storage</span><span>Authenticated access</span></div></div><button type="button" class="organizer-primary-download" data-organizer-download>Download Excel organizer <b>↓</b></button></div><div class="organizer-steps"><article><b>01</b><div><strong>Download</strong><p>Save a fresh copy of the organizer.</p></div></article><article><b>02</b><div><strong>Complete</strong><p>Fill the applicable sections and save the workbook.</p></div></article><article><b>03</b><div><strong>Upload securely</strong><p>Return to an active ticket and upload the completed file.</p></div></article><button id="organizerOpenTicket">Open an active ticket <span>→</span></button></div></div>
+            <section class="workspace-view hidden" id="intakeView">
+                <div class="workspace-view-heading"><div><span class="eyebrow">Your intake</span><h2>Start with the essentials</h2><p>Answer a few focused questions once. Your team will use them to prepare the right next steps.</p></div><button type="button" class="primary-action" id="openIntakeButton">Open questionnaire</button></div>
+                <div class="intake-home"><article><span>01</span><div><strong>Your filing profile</strong><p>Country, tax year, filing type and residency context.</p></div></article><article><span>02</span><div><strong>What applies</strong><p>Income, business, investments, property and cross-border details.</p></div></article><article><span>03</span><div><strong>Clear next request</strong><p>Create a request whenever something new needs attention.</p></div></article></div>
             </section>
-
-            <section class="workspace-view hidden admin-only" id="usersView">
+<section class="workspace-view hidden admin-only" id="usersView">
                 <div class="workspace-view-heading"><div><span class="eyebrow">Admin</span><h2>Users and access</h2><p>Review every Client account and control Team access from one directory.</p></div><button class="primary-action" id="inviteTeamButton">+ Invite team member</button></div>
                 <div class="user-directory-shell">
                     <div class="user-directory-tabs" role="tablist"><button class="active" data-user-tab="clients">Clients <span id="clientDirectoryCount">0</span></button><button data-user-tab="team">Team <span id="teamDirectoryCount">0</span></button></div>
@@ -228,16 +218,18 @@
         </main>
     </div>
 
-    <dialog class="ticket-dialog" id="newTicketDialog">
+        <dialog class="ticket-dialog request-dialog" id="newTicketDialog">
         <form method="dialog" id="newTicketForm">
-            <div class="dialog-heading"><div><span id="newTicketKicker">New request</span><h2 id="newTicketDialogTitle">Create a ticket</h2></div><button value="cancel" aria-label="Close">×</button></div><div class="manual-ticket-contact admin-only" id="manualTicketContact"><label>Customer name<input id="manualTicketName" placeholder="Customer name"></label><label>Customer email<input id="manualTicketEmail" type="email" placeholder="customer@example.com"></label><p>The ticket will automatically appear in the customer account when they register with this email.</p></div>
-            <label>What do you need help with?<input id="newTicketTitle" required placeholder="e.g. 2025 individual tax return"></label>
-            <div class="dialog-grid">
-                <label>Filing country<select id="newTicketCountry" required><option>United States</option><option>United Kingdom</option><option>Canada</option><option>India</option></select></label>
-                <label>Tax year<select id="newTicketYear" required><option>2026</option><option>2025</option><option>2024</option></select></label>
-            </div>
-            <label>Details<textarea id="newTicketDescription" required placeholder="Tell the team what you need and mention any deadlines."></textarea></label>
-            <div class="dialog-actions"><button value="cancel" class="secondary">Cancel</button><button value="default" type="submit">Create ticket</button></div>
+            <div class="dialog-heading"><div><span id="newTicketKicker">New request</span><h2 id="newTicketDialogTitle">Tell us about this filing</h2></div><button value="cancel" aria-label="Close">×</button></div>
+            <p class="dialog-intro">A few details help us send your request to the right person and start with the right questions.</p>
+            <div class="manual-ticket-contact admin-only" id="manualTicketContact"><label>Customer name<input id="manualTicketName" placeholder="Customer name"></label><label>Customer email<input id="manualTicketEmail" type="email" placeholder="customer@example.com"></label><p>The request will appear in the customer account when they register with this email.</p></div>
+            <label>What would you like help with?<input id="newTicketTitle" required placeholder="e.g. 2025 individual tax return"></label>
+            <div class="dialog-grid"><label>Filing country<select id="newTicketCountry" required><option>United States</option><option>India</option><option>United Kingdom</option><option>Canada</option><option>More than one country</option></select></label><label>Tax year<select id="newTicketYear" required><option>2026</option><option>2025</option><option>2024</option></select></label></div>
+            <div class="dialog-grid"><label>Filing type<select id="newTicketService"><option>Individual return</option><option>Business or self-employment</option><option>Cross-border or expat filing</option><option>NRI filing</option><option>ITIN application</option><option>Prior-year or amended return</option><option>Notice or tax question</option></select></label><label>Residency<select id="newTicketResidency"><option value="">Select if relevant</option><option>Resident in filing country</option><option>Non-resident / NRI</option><option>Moved during the tax year</option><option>Not sure</option></select></label></div>
+            <fieldset class="request-scope"><legend>What applies to this request?</legend><div><label><input type="checkbox" name="newTicketScope" value="Employment income"> Employment income</label><label><input type="checkbox" name="newTicketScope" value="Business or self-employment"> Business or self-employment</label><label><input type="checkbox" name="newTicketScope" value="Investments or capital gains"> Investments or capital gains</label><label><input type="checkbox" name="newTicketScope" value="Property or rental income"> Property or rental income</label><label><input type="checkbox" name="newTicketScope" value="Foreign income or assets"> Foreign income or assets</label></div></fieldset>
+            <div class="dialog-grid"><label>Important deadline<input id="newTicketDeadline" type="date"></label><label>Preferred contact method<select id="newTicketContactMethod"><option>Portal messages</option><option>Email</option><option>Phone call</option></select></label></div>
+            <label>Anything else we should know?<textarea id="newTicketDescription" required placeholder="Share the situation, deadlines, and questions you want us to address."></textarea></label>
+            <div class="dialog-actions"><button value="cancel" class="secondary">Cancel</button><button value="default" type="submit">Create request</button></div>
         </form>
     </dialog>
 
@@ -261,13 +253,15 @@
         <div class="notification-list" id="notificationList"></div>
         <div class="notification-footer"><button data-view-shortcut="documents">View all documents</button><button data-view-shortcut="tickets">Open ticket workspace <span>→</span></button></div>
     </dialog>
-
-    <dialog class="organizer-gate-dialog" id="organizerGateDialog">
-        <div class="organizer-gate-visual"><span>XL</span><div class="organizer-ring ring-one"></div><div class="organizer-ring ring-two"></div></div>
-        <div class="organizer-gate-copy"><span class="eyebrow">Before you get started</span><h2>Your tax organizer is ready</h2><p>Download the pre-filled Excel organizer, complete the applicable sections, and upload it securely to your ticket when ready.</p><div class="organizer-gate-points"><span>✓ Guided information collection</span><span>✓ Upload back inside your ticket</span><span>✓ Works in Excel and compatible apps</span></div><div class="organizer-gate-actions"><button type="button" id="gateDownloadOrganizer" data-organizer-download>Download organizer <span>↓</span></button><button id="continueToWorkspaceButton">Continue to workspace <span>→</span></button></div></div>
+    <dialog class="intake-dialog" id="intakeDialog">
+        <form id="intakeForm" novalidate>
+            <div class="intake-dialog-heading"><div><span class="eyebrow" id="intakeSection">Tax organizer</span><h2 id="intakeQuestion">Let’s start with your filing</h2><p id="intakeGuidance">One question at a time. You can go back whenever you need to.</p></div><button type="button" id="closeIntakeButton" aria-label="Close">×</button></div>
+            <div class="intake-progress"><div class="intake-progress-track"><i id="intakeProgressBar"></i></div><span id="intakeProgressText">Question 1</span></div>
+            <section class="intake-slide" id="intakeSlide" aria-live="polite"></section>
+            <div class="intake-actions"><button type="button" class="secondary" id="intakeBackButton">Back</button><button type="button" id="intakeSkipButton">Skip for now</button><button type="button" id="intakeNextButton">Continue</button><button type="submit" id="intakeSubmitButton" class="hidden">Save questionnaire</button></div>
+        </form>
     </dialog>
-
-    <dialog class="ticket-dialog" id="resetPasswordDialog">
+<dialog class="ticket-dialog" id="resetPasswordDialog">
         <form method="dialog" id="resetPasswordForm"><div class="dialog-heading"><div><span>Secure account</span><h2>Set a new password</h2></div></div><label>New password<input id="resetPassword" type="password" minlength="8" required placeholder="At least 8 characters"></label><label>Confirm new password<input id="resetPasswordConfirm" type="password" minlength="8" required placeholder="Repeat your password"></label><div class="dialog-actions"><button value="default" type="submit">Update password</button></div></form>
     </dialog>
 

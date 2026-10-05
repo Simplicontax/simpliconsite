@@ -3,7 +3,7 @@ import { isSupabaseConfigured, supabase } from './supabase';
 
 type Role = 'client' | 'team' | 'admin';
 type TicketStatus = 'new' | 'open' | 'work_in_progress' | 'pending' | 'pending_for_review' | 'waiting_for_client' | 'completed' | 'waiting_on_client' | 'in_review' | 'ready_for_review' | 'complete';
-type WorkspaceView = 'tickets' | 'documents' | 'users' | 'organizer';
+type WorkspaceView = 'tickets' | 'documents' | 'users' | 'intake';
 type Profile = { id:string; email:string; fullName:string; phone:string; jobTitle:string; role:Role; active:boolean; frozenAt?:string|null; removedAt?:string|null };
 type Activity = { id:string; authorId:string; author:string; authorInitials:string; text:string; time:string; createdAt:string; system:boolean };
 type TicketDocument = { id:string; name:string; size:string; type:string; uploadedBy:string; uploadedById:string; createdAt?:string; storagePath?:string };
@@ -16,13 +16,9 @@ type DbProfile = { id:string; email:string; full_name:string; phone:string|null;
 type DbTicket = { id:string; ticket_number:string; requester_id:string; requester_email:string|null; requester_name:string|null; subject:string; description:string; country:string; tax_year:number; status:TicketStatus; priority:string; assigned_to:string|null; updated_at:string };
 type DbComment = { id:string; ticket_id:string; author_id:string; body:string; is_system:boolean; created_at:string };
 type DbDocument = { id:string; ticket_id:string; uploaded_by:string; storage_path:string; file_name:string; size_bytes:number; document_type:string|null; created_at:string };
-type TaxOrganizer = { storagePath:string; fileName:string; mimeType:string; sizeBytes:number; updatedAt:string };
-type DbOrganizer = { storage_path:string; file_name:string; mime_type:string; size_bytes:number; updated_at:string };
-type PortalCache = { version:number; userId:string; savedAt:number; profile:Profile; tickets:Ticket[]; profiles:Profile[]; organizer:TaxOrganizer|null; selectedTicketId:string };
+type PortalCache = { version:number; userId:string; savedAt:number; profile:Profile; tickets:Ticket[]; profiles:Profile[]; selectedTicketId:string };
 
 
-const TAX_ORGANIZER_BUCKET = 'tax-organizers';
-const TAX_ORGANIZER_PATH = 'current/Simplicon-Tax-Organizer.xlsx';
 const PORTAL_CACHE_VERSION = 2;
 const PORTAL_CACHE_MAX_AGE = 30 * 60 * 1000;
 const PORTAL_CACHE_PREFIX = 'simplicon.portal.workspace.';
@@ -40,8 +36,8 @@ let selectedTicketId = '';
 let activeFilter = 'all';
 let authMode:'signin'|'signup' = 'signin';
 let organizerGatePending = false;
+let intakeStep = 1;
 let workspaceEntryInFlight = false;
-let currentOrganizer:TaxOrganizer|null = null;
 let accessCheckInFlight = false;
 const readNotificationIds = new Set<string>();
 let realtimeChannel: { unsubscribe: () => unknown }|null = null;
@@ -57,7 +53,7 @@ function clearWorkspaceCache(userId?:string):void {
 }
 function persistWorkspaceCache():void {
   if(!currentProfile)return;
-  const payload:PortalCache={version:PORTAL_CACHE_VERSION,userId:currentProfile.id,savedAt:Date.now(),profile:currentProfile,tickets,profiles:profilesDirectory,organizer:currentOrganizer,selectedTicketId};
+  const payload:PortalCache={version:PORTAL_CACHE_VERSION,userId:currentProfile.id,savedAt:Date.now(),profile:currentProfile,tickets,profiles:profilesDirectory,selectedTicketId};
   try{sessionStorage.setItem(portalCacheKey(currentProfile.id),JSON.stringify(payload));}
   catch{/* Fresh network data remains the fallback. */}
 }
@@ -67,7 +63,7 @@ function restoreWorkspaceCache(user:User):boolean {
     const cached=JSON.parse(raw) as Partial<PortalCache>;
     if(cached.version!==PORTAL_CACHE_VERSION||cached.userId!==user.id||!cached.profile||!Array.isArray(cached.tickets)||!Array.isArray(cached.profiles)||typeof cached.savedAt!=='number'||Date.now()-cached.savedAt>PORTAL_CACHE_MAX_AGE){clearWorkspaceCache(user.id);return false;}
     if(cached.profile.email.toLowerCase()!==(user.email??'').toLowerCase()||!cached.profile.active||cached.profile.removedAt){clearWorkspaceCache(user.id);return false;}
-    currentProfile=cached.profile;tickets=cached.tickets;profilesDirectory=cached.profiles;teamMembers=profilesDirectory.filter((profile)=>profile.role==='team'&&profile.active&&!profile.removedAt);currentOrganizer=cached.organizer??null;selectedTicketId=cached.selectedTicketId??tickets[0]?.id??'';
+    currentProfile=cached.profile;tickets=cached.tickets;profilesDirectory=cached.profiles;teamMembers=profilesDirectory.filter((profile)=>profile.role==='team'&&profile.active&&!profile.removedAt);selectedTicketId=cached.selectedTicketId??tickets[0]?.id??'';
     return true;
   }catch{clearWorkspaceCache(user.id);return false;}
 }
@@ -185,9 +181,34 @@ function finishBootstrap(showAuth=false):void {
   if(showAuth){el<HTMLElement>('portalApp').classList.add('hidden');el<HTMLElement>('authShell').classList.remove('hidden');closeAccountMenu();}
 }
 function closeAccountMenu():void { const menu=document.getElementById('accountMenu');const button=document.getElementById('accountMenuButton');menu?.classList.add('hidden');button?.setAttribute('aria-expanded','false'); }
-function showOrganizerGate():void {
-  if(currentProfile?.role!=='client'||!organizerGatePending)return;organizerGatePending=false;window.setTimeout(()=>{const dialog=el<HTMLDialogElement>('organizerGateDialog');if(!dialog.open)dialog.showModal();},0);
+type IQ={s:string;id:string;q:string;t:string;o:string[];r:boolean};
+const intakeData=`Filing profile|taxYear|Which tax year are you filing?|select|2026,2025,2024|1~Filing profile|filingCountry|What is your primary filing country?|select|United States,United Kingdom,Canada,India|1~Filing profile|filingStatus|What is your filing status?|select|Single,Married filing jointly,Married filing separately,Head of household,Civil partnership,Not sure|1~Personal details|firstName|What is your first name?|text||1~Personal details|lastName|What is your last name?|text||1~Personal details|dateOfBirth|What is your date of birth?|date||1~Personal details|taxIdType|Which tax ID will you use?|select|SSN,ITIN,UTR,SIN,PAN,Other,Not sure|1~Contact and residency|email|What is the best email for tax updates?|email||1~Contact and residency|phone|What is the best phone number to reach you?|text||0~Contact and residency|streetAddress|What is your current street address?|text||1~Contact and residency|city|Which city do you live in?|text||1~Contact and residency|stateProvinceCounty|What is your state, province, or county?|text||0~Contact and residency|postalCode|What is your postal code?|text||1~Contact and residency|residencyCountry|Which country are you currently resident in?|text||1~Contact and residency|residencyChanged|Did your residency change during the tax year?|radio|Yes,No,Not sure|1~Income and employment|hasIncome|Do you have income or employment sources to report?|radio|Yes,No,Not sure|1~Income and employment|incomeSources|Add each income source|income||0~Deductions and credits|deductions|Add deductions or credits that may apply|deduction||0~International details|multiCountry|Did you live or work in more than one country?|international||1~International details|foreignAccounts|Did you hold foreign bank or investment accounts?|international||1~International details|foreignThreshold|Did combined foreign balances exceed reporting thresholds?|international||1~International details|foreignProperty|Did you own foreign property?|international||1~International details|foreignBusinessIncome|Did you receive foreign employment or business income?|international||1~International details|foreignPension|Did you receive foreign pension income?|international||1~International details|foreignInterest|Did you receive foreign dividends or interest?|international||1~International details|foreignAssetsCrypto|Did you dispose of foreign assets or cryptocurrency?|international||1~International details|treatyRelief|Did you claim treaty relief in a prior year?|international||1~International details|crossBorderFacts|Are there any other cross-border facts your preparer should know?|textarea||0~Document checklist|identityTaxId|Do identity and tax ID documents apply to your filing?|radio|Yes,No,Not sure|1~Document checklist|employmentDocuments|Do employment-income documents apply to your filing?|radio|Yes,No,Not sure|1~Document checklist|businessDocuments|Do self-employment or business documents apply to your filing?|radio|Yes,No,Not sure|1~Document checklist|interestDocuments|Do interest or dividend documents apply to your filing?|radio|Yes,No,Not sure|1~Document checklist|investmentDocuments|Do investments or capital-gains documents apply to your filing?|radio|Yes,No,Not sure|1~Document checklist|propertyDocuments|Do property or rental documents apply to your filing?|radio|Yes,No,Not sure|1~Document checklist|retirementDocuments|Do retirement or pension documents apply to your filing?|radio|Yes,No,Not sure|1~Document checklist|educationDocuments|Do education documents apply to your filing?|radio|Yes,No,Not sure|1~Document checklist|charityDocuments|Do charitable-giving documents apply to your filing?|radio|Yes,No,Not sure|1~Document checklist|foreignDocuments|Do foreign-account or foreign-income documents apply to your filing?|radio|Yes,No,Not sure|1~Document checklist|priorReturn|Do you have a prior-year tax return to provide?|radio|Yes,No,Not sure|1`;
+const intakeQuestions:IQ[]=intakeData.split('~').map((row)=>{const [s,id,q,t,o,r]=row.split('|');return{s,id,q,t,o:o?o.split(','):[],r:r==='1'};});
+let intakeAnswers:Record<string,string>={};let intakeIncome:Record<string,string>[]=[];let intakeDeductions:Record<string,string>[]=[];
+function intakeStorageKey():string{return `simplicon.intake-preview:${currentProfile?.id??'guest'}`;}
+function isLocalIntakePreview():boolean{return location.hostname==='localhost'&&new URLSearchParams(location.search).get('preview')==='intake';}
+function activeQuestions():IQ[]{return intakeQuestions.filter((q)=>q.id!=='incomeSources'||intakeAnswers.hasIncome==='Yes');}
+function radio(q:IQ):string{return q.o.map((o)=>`<label class="intake-choice"><input type="radio" name="intake-answer" value="${o}"${intakeAnswers[q.id]===o?' checked':''}${q.r?' required':''}><span>${o}</span></label>`).join('');}
+function list(items:Record<string,string>[],key:string,attribute:string):string{return items.length?`<div class="intake-entry-list">${items.map((item,i)=>`<article><span>${escapeHtml(item[key])}</span><button type="button" ${attribute}="${i}">×</button></article>`).join('')}</div>`:'<p class="intake-empty">No entries added yet.</p>';}
+function collection(kind:'income'|'deduction'):string{const fields=kind==='income'?[['type','Income type','Employment,Self-employment or business,Interest or dividends,Investments or capital gains,Property or rental,Retirement or pension,Other income'],['payer','Payer or employer',''],['country','Country',''],['currency','Currency',''],['gross','Gross amount',''],['withheld','Tax withheld',''],['document','Document available?','Yes,No,Not sure'],['notes','Notes','']]:[['category','Category','Medical or health expenses,Education,Charitable giving,Child or dependent care,Retirement contribution,Mortgage or property expense,Business expense,Other deduction or credit'],['provider','Description or provider',''],['country','Country',''],['currency','Currency',''],['amount','Amount',''],['document','Supporting document?','Yes,No,Not sure']];const prefix=kind==='income'?'income':'deduction';return `<div class="intake-collection"><div class="intake-collection-form">${fields.map(([id,label,choices])=>`<label>${label}${choices?`<select data-${prefix}="${id}"><option value="">Choose one</option>${choices.split(',').map((choice)=>`<option>${choice}</option>`).join('')}</select>`:`<input data-${prefix}="${id}">`}</label>`).join('')}</div><button type="button" class="intake-add-entry" id="add${kind==='income'?'IncomeSource':'Deduction'}">Add ${kind==='income'?'income source':'deduction or credit'}</button>${list(kind==='income'?intakeIncome:intakeDeductions,kind==='income'?'type':'category','data-remove-'+prefix)}</div>`;}
+function taxYearMarkup():string {
+  const currentYear=new Date().getFullYear();
+  const recentYears=Array.from({length:4},(_,index)=>String(currentYear-index));
+  const savedYear=intakeAnswers.taxYear??'';
+  const earlierSelected=Boolean(savedYear)&&!recentYears.includes(savedYear);
+  return `<div class="intake-choice-grid intake-year-grid">${recentYears.map((year)=>`<label class="intake-choice"><input type="radio" name="intake-answer" value="${year}"${savedYear===year?' checked':''} required><span>${year}</span></label>`).join('')}<div class="intake-earlier-choice"><label class="intake-choice"><input type="radio" name="intake-answer" value="earlier"${earlierSelected?' checked':''} required><span>Earlier year</span></label><input data-intake-earlier type="number" inputmode="numeric" min="1900" max="${currentYear-4}" step="1" placeholder="Enter tax year" value="${earlierSelected?escapeHtml(savedYear):''}" aria-label="Earlier tax year" required></div></div>`;
 }
+function markup(q:IQ):string{if(q.id==='taxYear')return taxYearMarkup();if(q.t==='income')return collection('income');if(q.t==='deduction')return collection('deduction');if(q.t==='international')return `<div class="intake-choice-grid">${radio({...q,o:['Yes','No','Not sure']})}</div><div class="intake-follow-up"><label>Country or jurisdiction<input data-country value="${escapeHtml(intakeAnswers[q.id+'Country']??'')}"></label><label>Details<textarea data-details>${escapeHtml(intakeAnswers[q.id+'Details']??'')}</textarea></label></div>`;if(q.t==='radio'||q.t==='select')return `<div class="intake-choice-grid">${radio(q)}</div>`;if(q.t==='textarea')return `<textarea data-intake-answer placeholder="Optional details">${escapeHtml(intakeAnswers[q.id]??'')}</textarea>`;return `<input data-intake-answer type="${q.t==='email'?'email':q.t==='date'?'date':'text'}" value="${escapeHtml(intakeAnswers[q.id]??'')}"${q.r?' required':''}>`;}
+function renderIntakeSlide():void{const qs=activeQuestions();intakeStep=Math.max(0,Math.min(intakeStep,qs.length-1));const q=qs[intakeStep];el<HTMLElement>('intakeSection').textContent=q.s;el<HTMLElement>('intakeQuestion').textContent=q.q;el<HTMLElement>('intakeGuidance').textContent=q.id==='taxYear'?'Select a recent year or enter an earlier one.':q.t==='income'?'One row per employer, business, account, property, pension, or other source.':q.t==='deduction'?'Enter the best-known annual amount.':q.t==='international'?'Add the country or jurisdiction and any useful detail when it applies.':'Answer one question at a time. You can go back whenever you need to.';el<HTMLElement>('intakeProgressText').textContent=`Question ${intakeStep+1} of ${qs.length}`;el<HTMLElement>('intakeProgressBar').style.width=`${100*(intakeStep+1)/qs.length}%`;el<HTMLElement>('intakeSlide').innerHTML=markup(q);el<HTMLButtonElement>('intakeBackButton').disabled=intakeStep===0;el<HTMLButtonElement>('intakeSkipButton').classList.toggle('hidden',q.r||intakeStep===qs.length-1);el<HTMLButtonElement>('intakeNextButton').classList.toggle('hidden',intakeStep===qs.length-1);el<HTMLButtonElement>('intakeSubmitButton').classList.toggle('hidden',intakeStep!==qs.length-1);document.getElementById('addIncomeSource')?.addEventListener('click',()=>addCollection('income'));document.getElementById('addDeduction')?.addEventListener('click',()=>addCollection('deduction'));document.querySelectorAll<HTMLButtonElement>('[data-remove-income]').forEach((b)=>b.addEventListener('click',()=>{intakeIncome.splice(Number(b.dataset.removeIncome),1);renderIntakeSlide();}));document.querySelectorAll<HTMLButtonElement>('[data-remove-deduction]').forEach((b)=>b.addEventListener('click',()=>{intakeDeductions.splice(Number(b.dataset.removeDeduction),1);renderIntakeSlide();}));}
+function addCollection(kind:'income'|'deduction'):void{const data:Record<string,string>={};document.querySelectorAll<HTMLInputElement|HTMLSelectElement>('[data-'+kind+']').forEach((x)=>data[x.getAttribute('data-'+kind)??'']=x.value.trim());const keys=kind==='income'?['type','payer','country','currency','gross']:['category','provider','country','currency','amount'];if(keys.some((key)=>!data[key])){showToast('Complete the required fields before adding this entry.',true);return;}(kind==='income'?intakeIncome:intakeDeductions).push(data);renderIntakeSlide();}
+function saveAnswer():void{const q=activeQuestions()[intakeStep];if(!q||q.t==='income'||q.t==='deduction')return;const choice=document.querySelector<HTMLInputElement>('input[name="intake-answer"]:checked');if(q.id==='taxYear'){intakeAnswers.taxYear=choice?.value==='earlier'?(document.querySelector<HTMLInputElement>('[data-intake-earlier]')?.value.trim()??''):(choice?.value??'');return;}intakeAnswers[q.id]=(q.t==='radio'||q.t==='select'||q.t==='international')?(choice?.value??''):document.querySelector<HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement>('[data-intake-answer]')?.value.trim()??'';if(q.t==='international'){intakeAnswers[q.id+'Country']=document.querySelector<HTMLInputElement>('[data-country]')?.value.trim()??'';intakeAnswers[q.id+'Details']=document.querySelector<HTMLTextAreaElement>('[data-details]')?.value.trim()??'';}}
+function validAnswer():boolean{const q=activeQuestions()[intakeStep];if(!q?.r)return true;if(q.id==='taxYear'){const choice=document.querySelector<HTMLInputElement>('input[name="intake-answer"]:checked');if(!choice)return false;if(choice.value==='earlier')return document.querySelector<HTMLInputElement>('[data-intake-earlier]')?.reportValidity()??false;return true;}if(q.t==='radio'||q.t==='select'||q.t==='international')return Boolean(document.querySelector('input[name="intake-answer"]:checked'));return document.querySelector<HTMLInputElement|HTMLSelectElement>('[data-intake-answer]')?.reportValidity()??true;}
+function setIntakeStep(step:number):void{saveAnswer();intakeStep=step;renderIntakeSlide();}
+function openIntakeDialog():void{try{const saved=JSON.parse(localStorage.getItem(intakeStorageKey())??'{}') as {answers?:Record<string,string>;income?:Record<string,string>[];deductions?:Record<string,string>[]};intakeAnswers=saved.answers??{};intakeIncome=saved.income??[];intakeDeductions=saved.deductions??[];}catch{intakeAnswers={};intakeIncome=[];intakeDeductions=[];}intakeStep=0;renderIntakeSlide();const dialog=el<HTMLDialogElement>('intakeDialog');if(!dialog.open)dialog.showModal();}
+function showIntakeGate():void{if(!organizerGatePending)return;organizerGatePending=false;if(!isLocalIntakePreview()&&(currentProfile?.role!=='client'||localStorage.getItem(intakeStorageKey())))return;window.setTimeout(openIntakeDialog,0);}
+function intakeSelections(name:string):string[]{return [...document.querySelectorAll<HTMLInputElement>(`input[name="${name}"]:checked`)].map((input)=>input.value);}
+function buildRequestDescription(notes:string):string{const p=[`Filing type: ${el<HTMLSelectElement>('newTicketService').value}`,`Residency: ${el<HTMLSelectElement>('newTicketResidency').value||'Not provided'}`,`Relevant areas: ${intakeSelections('newTicketScope').join(', ')||'Not provided'}`,`Important deadline: ${el<HTMLInputElement>('newTicketDeadline').value||'Not provided'}`,`Preferred contact: ${el<HTMLSelectElement>('newTicketContactMethod').value}`];return `Request details\n${p.join('\n')}\n\nClient notes\n${notes}`;}
+function wireIntake():void{const dialog=el<HTMLDialogElement>('intakeDialog');el<HTMLButtonElement>('openIntakeButton').addEventListener('click',openIntakeDialog);el<HTMLButtonElement>('closeIntakeButton').addEventListener('click',()=>dialog.close());el<HTMLButtonElement>('intakeBackButton').addEventListener('click',()=>setIntakeStep(intakeStep-1));el<HTMLButtonElement>('intakeSkipButton').addEventListener('click',()=>setIntakeStep(intakeStep+1));el<HTMLButtonElement>('intakeNextButton').addEventListener('click',()=>{if(!validAnswer()){showToast('Please answer this question before continuing.',true);return;}setIntakeStep(intakeStep+1);});el<HTMLFormElement>('intakeForm').addEventListener('submit',(event)=>{event.preventDefault();if(!validAnswer()){showToast('Please answer this question before reviewing your intake.',true);return;}saveAnswer();try{localStorage.setItem(intakeStorageKey(),JSON.stringify({answers:intakeAnswers,income:intakeIncome,deductions:intakeDeductions,savedAt:new Date().toISOString()}));}catch{}dialog.close();showToast('Questionnaire saved in this local preview.');});}
 
 function setAuthMode(mode:'signin'|'signup'):void {
   authMode=mode;
@@ -260,19 +281,16 @@ function showWorkspace():void {
   el<HTMLElement>('topbarRole').textContent=`${roleLabel(currentProfile.role)} access`
   document.querySelectorAll<HTMLElement>('.sidebar-profile .avatar,#topbarAvatar').forEach((avatar)=>avatar.textContent=initials(currentProfile!.fullName));
   if(!tickets.some((ticket)=>ticket.id===selectedTicketId))selectedTicketId=tickets[0]?.id??'';
-  renderAssigneeOptions();renderUserDirectory();renderAll();switchView('tickets');showOrganizerGate();
+  renderAssigneeOptions();renderUserDirectory();renderAll();switchView('tickets');showIntakeGate();
 }
 
 async function loadSupabaseData():Promise<void> {
   if(!supabase||!currentProfile)return;
-  const [{data:ticketRows,error:ticketError},{data:profileRows,error:profileError},{data:organizerRow,error:organizerError}]=await Promise.all([
+  const [{data:ticketRows,error:ticketError},{data:profileRows,error:profileError}]=await Promise.all([
     supabase.from('tickets').select('*').order('updated_at',{ascending:false}),
     supabase.from('profiles').select('*'),
-    supabase.from('tax_organizer_templates').select('storage_path,file_name,mime_type,size_bytes,updated_at').eq('id','current').maybeSingle(),
   ]);
   if(ticketError)throw ticketError;if(profileError)throw profileError;
-  if(organizerError&&!['42P01','PGRST205'].includes(organizerError.code))throw organizerError;
-  const organizer=organizerRow as DbOrganizer|null;currentOrganizer=organizer?{storagePath:organizer.storage_path,fileName:organizer.file_name,mimeType:organizer.mime_type,sizeBytes:organizer.size_bytes,updatedAt:organizer.updated_at}:null;
   const profiles:Profile[]=((profileRows??[]) as DbProfile[]).map((row)=>({id:row.id,email:row.email,fullName:row.full_name,phone:row.phone??'',jobTitle:row.job_title??'',role:row.role,active:row.active,frozenAt:row.frozen_at,removedAt:row.removed_at}));
   profilesDirectory=profiles;teamMembers=profiles.filter((profile)=>profile.role==='team'&&profile.active&&!profile.removedAt);
   const profileMap=new Map(profiles.map((profile)=>[profile.id,profile]));profileMap.set(currentProfile.id,currentProfile);
@@ -294,7 +312,7 @@ async function loadSupabaseData():Promise<void> {
   persistWorkspaceCache();
 }
 
-function renderAll():void { renderCounts();renderTickets();renderDetail();renderGlobalDocuments();renderNotifications();renderOrganizer(); }
+function renderAll():void { renderCounts();renderTickets();renderDetail();renderGlobalDocuments();renderNotifications(); }
 
 function renderCounts():void {
   const active=tickets.filter((ticket)=>!isCompleted(ticket.status)).length;
@@ -306,46 +324,6 @@ function renderCounts():void {
   [tickets.length,active,complete].forEach((count,index)=>{const badge=filterButtons[index]?.querySelector('span');if(badge)badge.textContent=String(count);});
 }
 
-function renderOrganizer():void {
-  const available=Boolean(currentOrganizer);
-  el<HTMLElement>('organizerFileName').textContent=currentOrganizer?.fileName??'Tax organizer not uploaded';
-  el<HTMLElement>('organizerFileSize').textContent=currentOrganizer?formatBytes(currentOrganizer.sizeBytes):'—';
-  el<HTMLElement>('organizerUpdatedLabel').textContent=currentOrganizer?`Updated ${formatTime(currentOrganizer.updatedAt)}`:'Organizer upload required';
-  document.querySelectorAll<HTMLButtonElement>('[data-organizer-download]').forEach((button)=>{
-    button.disabled=!available;
-    button.title=available?'Download secure organizer':'The administrator has not uploaded the organizer yet';
-  });
-  const replaceButton=el<HTMLButtonElement>('replaceOrganizerButton');
-  replaceButton.textContent=available?'Replace organizer':'Upload organizer';
-}
-
-async function downloadTaxOrganizer(button:HTMLButtonElement):Promise<void> {
-  if(!currentOrganizer){showToast('The tax organizer has not been uploaded yet.',true);return;}
-  if(!supabase){showToast('The secure file service is unavailable.',true);return;}
-  setButtonLoading(button,true,'Preparing…');
-  try{
-    const {data,error}=await supabase.storage.from(TAX_ORGANIZER_BUCKET).createSignedUrl(currentOrganizer.storagePath,120,{download:currentOrganizer.fileName});
-    if(error||!data?.signedUrl){showToast(error?.message??'Unable to prepare the organizer download.',true);return;}
-    const link=document.createElement('a');link.href=data.signedUrl;link.rel='noopener noreferrer';link.click();
-  }finally{setButtonLoading(button,false);}
-}
-
-async function replaceTaxOrganizer(file:File):Promise<void> {
-  if(currentProfile?.role!=='admin'){showToast('Only the administrator can replace the tax organizer.',true);return;}
-  if(!supabase){showToast('The secure workspace is unavailable.',true);return;}
-  const extension=file.name.split('.').pop()?.toLowerCase();
-  if(!extension||!['xlsx','xls'].includes(extension)){showToast('Upload an Excel .xlsx or .xls organizer.',true);return;}
-  if(file.size>20*1024*1024){showToast('The organizer must be 20 MB or smaller.',true);return;}
-  const button=el<HTMLButtonElement>('replaceOrganizerButton');setButtonLoading(button,true,'Replacing…');
-  try{
-    const mimeType=file.type||'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-    const {error:uploadError}=await supabase.storage.from(TAX_ORGANIZER_BUCKET).upload(TAX_ORGANIZER_PATH,file,{upsert:true,contentType:mimeType,cacheControl:'0'});
-    if(uploadError){showToast(uploadError.message,true);return;}
-    const {data,error}=await supabase.from('tax_organizer_templates').upsert({id:'current',storage_path:TAX_ORGANIZER_PATH,file_name:file.name,mime_type:mimeType,size_bytes:file.size,uploaded_by:currentProfile.id,updated_at:new Date().toISOString()},{onConflict:'id'}).select('storage_path,file_name,mime_type,size_bytes,updated_at').single();
-    if(error||!data){showToast(error?.message??'The organizer metadata could not be updated.',true);return;}
-    const row=data as DbOrganizer;currentOrganizer={storagePath:row.storage_path,fileName:row.file_name,mimeType:row.mime_type,sizeBytes:row.size_bytes,updatedAt:row.updated_at};renderOrganizer();showToast('The current tax organizer has been replaced securely.');
-  }finally{const input=el<HTMLInputElement>('organizerFileInput');input.value='';setButtonLoading(button,false);}
-}
 function renderTickets():void {
   const visible=tickets.filter((ticket)=>activeFilter==='active'?!isCompleted(ticket.status):activeFilter==='complete'?isCompleted(ticket.status):true);
   ticketList.innerHTML=visible.map((ticket)=>`<button class="ticket-item ${ticket.id===selectedTicketId?'active':''}" data-ticket-id="${ticket.id}"><span class="country-chip">${countryCode(ticket.country)}</span><span class="ticket-summary"><span class="ticket-summary-row"><small>${escapeHtml(ticket.number)}</small><b class="mini-priority ${ticket.priority.toLowerCase()}">${escapeHtml(ticket.priority)}</b></span><h3>${escapeHtml(ticket.title)}</h3><p><span class="status-dot ${isCompleted(ticket.status)?'complete':''}"></span>${statusLabel(ticket.status)} · ${ticket.year}</p></span><time class="ticket-time">${escapeHtml(ticket.updated)}</time></button>`).join('')||'<div class="empty-state"><h3>No requests in this queue</h3><p>Only tickets available to your role appear here.</p></div>';
@@ -554,7 +532,7 @@ async function createTicket(event:SubmitEvent):Promise<void> {
   if(!supabase){showToast('The secure workspace is unavailable.',true);return;}
   const manual=el<HTMLFormElement>('newTicketForm').dataset.manual==='true';if(manual&&currentProfile.role!=='admin'){showToast('Only the administrator can create a customer ticket.',true);return;}
   const button=el<HTMLFormElement>('newTicketForm').querySelector<HTMLButtonElement>('button[type="submit"]')!;setButtonLoading(button,true,'Creating…');
-  const subject=el<HTMLInputElement>('newTicketTitle').value.trim();const country=el<HTMLSelectElement>('newTicketCountry').value;const year=Number(el<HTMLSelectElement>('newTicketYear').value);const description=el<HTMLTextAreaElement>('newTicketDescription').value.trim();
+  const subject=el<HTMLInputElement>('newTicketTitle').value.trim();const country=el<HTMLSelectElement>('newTicketCountry').value;const year=Number(el<HTMLSelectElement>('newTicketYear').value);const description=buildRequestDescription(el<HTMLTextAreaElement>('newTicketDescription').value.trim());
   const customerEmail=(manual?el<HTMLInputElement>('manualTicketEmail').value:currentProfile.email).trim().toLowerCase();const customerName=(manual?el<HTMLInputElement>('manualTicketName').value:currentProfile.fullName).trim();
   if(!customerName||!customerEmail){showToast('Enter the customer name and email.',true);setButtonLoading(button,false);return;}
   try{
@@ -615,10 +593,8 @@ function wireEvents():void {
   const documentDeleteDialog=el<HTMLDialogElement>('documentDeleteDialog');el<HTMLButtonElement>('cancelDocumentDelete').addEventListener('click',()=>{pendingDeleteDocumentId='';documentDeleteDialog.close();});el<HTMLButtonElement>('confirmDocumentDelete').addEventListener('click',()=>void deleteDocument());
   ['profileButton','accountProfileButton'].forEach((id)=>el<HTMLButtonElement>(id).addEventListener('click',()=>{closeAccountMenu();openProfile();}));el<HTMLButtonElement>('accountSecurityButton').addEventListener('click',()=>{closeAccountMenu();el<HTMLDialogElement>('resetPasswordDialog').showModal();});el<HTMLFormElement>('profileForm').addEventListener('submit',(event)=>void saveProfile(event));
   const notifications=el<HTMLDialogElement>('notificationDialog');el<HTMLButtonElement>('notificationsButton').addEventListener('click',()=>{renderNotifications();notifications.showModal();});el<HTMLButtonElement>('closeNotifications').addEventListener('click',()=>notifications.close());el<HTMLButtonElement>('markAllReadButton').addEventListener('click',markAllNotificationsRead);document.querySelectorAll<HTMLButtonElement>('[data-view-shortcut]').forEach((button)=>button.addEventListener('click',()=>{notifications.close();switchView(button.dataset.viewShortcut as WorkspaceView);}));
-  el<HTMLInputElement>('documentSearch').addEventListener('input',renderGlobalDocuments);el<HTMLButtonElement>('organizerOpenTicket').addEventListener('click',()=>{const active=tickets.find((ticket)=>!isCompleted(ticket.status))??tickets[0];if(!active){showToast('No ticket is available for upload.',true);return;}selectedTicketId=active.id;switchView('tickets');renderTickets();renderDetail();setDetailTab('documents');});
-  document.querySelectorAll<HTMLButtonElement>('[data-organizer-download]').forEach((button)=>button.addEventListener('click',()=>void downloadTaxOrganizer(button)));
-  const organizerFileInput=el<HTMLInputElement>('organizerFileInput');el<HTMLButtonElement>('replaceOrganizerButton').addEventListener('click',()=>organizerFileInput.click());organizerFileInput.addEventListener('change',()=>{const file=organizerFileInput.files?.[0];if(file)void replaceTaxOrganizer(file);});
-  const organizerGate=el<HTMLDialogElement>('organizerGateDialog');organizerGate.addEventListener('cancel',(event)=>event.preventDefault());el<HTMLButtonElement>('continueToWorkspaceButton').addEventListener('click',()=>organizerGate.close());el<HTMLButtonElement>('gateDownloadOrganizer').addEventListener('click',()=>{el<HTMLButtonElement>('continueToWorkspaceButton').innerHTML='Continue to workspace <span>→</span>';});
+  el<HTMLInputElement>('documentSearch').addEventListener('input',renderGlobalDocuments)
+  wireIntake();
   el<HTMLFormElement>('resetPasswordForm').addEventListener('submit',(event)=>void updatePassword(event));el<HTMLButtonElement>('mobileMenu').addEventListener('click',()=>el<HTMLElement>('portalSidebar').classList.toggle('open'));
   el<HTMLButtonElement>('replySyncNow').addEventListener('click',()=>void syncTicketEmailReplies(true));
 }
