@@ -238,7 +238,7 @@ async function authenticate(event:SubmitEvent):Promise<void> {
       organizerGatePending=true;await enterAuthenticatedWorkspace(data.user);
     }else{
       const fullName=el<HTMLInputElement>('authName').value.trim();
-      const {data,error}=await supabase.auth.signUp({email,password,options:{data:{full_name:fullName},emailRedirectTo:`${window.location.origin}/portal.html`}});
+      const {data,error}=await supabase.auth.signUp({email,password,options:{data:{full_name:fullName},emailRedirectTo:'https://www.simplicontax.com/portal.html'}});
       if(error)throw error;
       if(data.session&&data.user){organizerGatePending=true;await enterAuthenticatedWorkspace(data.user);}
       else showToast('Check your email to confirm your client account.');
